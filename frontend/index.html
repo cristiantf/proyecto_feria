@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración - Feria</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Cargar face-api.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fa-solid fa-microchip"></i> Domótica AI</h2>
+            </div>
+            <ul class="nav-menu">
+                <li class="active" data-target="usuarios-section"><i class="fa-solid fa-users"></i> Usuarios y Rostros</li>
+                <li data-target="logs-section"><i class="fa-solid fa-list-check"></i> Historial de Accesos</li>
+            </ul>
+            <div class="sidebar-footer">
+                <a href="login.html" class="btn btn-secondary w-100" style="text-decoration:none; text-align:center;">
+                    <i class="fa-solid fa-camera"></i> Ir al Portal Usuario
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header>
+                <h1>Panel de Control (Administrador)</h1>
+            </header>
+
+            <!-- Sección: Usuarios -->
+            <section id="usuarios-section" class="content-section active">
+                <div class="section-header">
+                    <h2>Usuarios Registrados</h2>
+                    <button id="btn-nuevo-usuario" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Registrar Rostro</button>
+                </div>
+                
+                <div class="card">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID DB</th>
+                                <th>Nombre</th>
+                                <th>Acceso Habilitado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-usuarios">
+                            <!-- Datos dinámicos -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Sección: Logs -->
+            <section id="logs-section" class="content-section">
+                <div class="section-header">
+                    <h2>Registro de Accesos Recientes</h2>
+                    <button id="btn-refresh-logs" class="btn btn-secondary"><i class="fa-solid fa-rotate-right"></i> Actualizar</button>
+                </div>
+
+                <div class="card">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha/Hora</th>
+                                <th>Usuario Reconocido</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-logs">
+                            <!-- Datos dinámicos -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal Nuevo Usuario con Reconocimiento Facial -->
+    <div id="modal-usuario" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>Registrar Nuevo Rostro</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="form-usuario">
+                    <div class="form-group">
+                        <label for="nombre">Nombre Completo</label>
+                        <input type="text" id="nombre" required placeholder="Ej: Juan Pérez">
+                    </div>
+                    
+                    <div class="form-group" style="text-align: center;">
+                        <label>Captura Facial (Mira a la cámara)</label>
+                        <div style="position: relative; display: inline-block;">
+                            <video id="video-registro" width="400" height="300" autoplay muted style="border-radius: 8px; border: 2px solid var(--border-color);"></video>
+                            <canvas id="canvas-registro" style="position: absolute; top: 0; left: 0;"></canvas>
+                        </div>
+                        <p id="estado-ia" style="color: var(--text-secondary); margin-top: 10px;">Cargando modelos de IA...</p>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="tiene_acceso" checked>
+                        <label for="tiene_acceso">Habilitar acceso inmediato</label>
+                    </div>
+                    <button type="submit" id="btn-guardar" class="btn btn-primary w-100" disabled>Guardar Rostro y Usuario</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
