@@ -82,16 +82,26 @@ async function cargarLogs() {
 // ==========================================
 
 async function cargarModelos() {
-    try {
-        await faceapi.nets.ssdMobilenetv1.loadFromUri('https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights');
-        await faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights');
-        await faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights');
-        estadoIA.innerText = "Modelos cargados. Iniciando cámara...";
-        iniciarCamara();
-    } catch(err) {
-        estadoIA.innerText = "Error cargando modelos. Asegúrate de iniciar un servidor web.";
-        console.error(err);
+    estadoIA.innerText = "Cargando modelos de IA...";
+    const uriList = [
+        './models',
+        'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights',
+        'https://vladmandic.github.io/face-api/model/'
+    ];
+
+    for (const uri of uriList) {
+        try {
+            await faceapi.nets.ssdMobilenetv1.loadFromUri(uri);
+            await faceapi.nets.faceLandmark68Net.loadFromUri(uri);
+            await faceapi.nets.faceRecognitionNet.loadFromUri(uri);
+            estadoIA.innerText = "Modelos cargados. Iniciando cámara...";
+            iniciarCamara();
+            return;
+        } catch (err) {
+            console.warn(`No se pudieron cargar modelos desde ${uri}:`, err.message);
+        }
     }
+    estadoIA.innerText = "Error cargando modelos. Asegúrate de iniciar un servidor web local (Live Server o http-server).";
 }
 
 function iniciarCamara() {
@@ -139,34 +149,51 @@ video.addEventListener('play', () => {
 // Guardar Usuario
 formUsuario.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if(!capturedDescriptor) {
-        alert("Aún no se ha capturado un rostro válido.");
+    if (!capturedDescriptor) {
+        alert("Aún no se ha capturado un rostro válido. Por favor mira a la cámara.");
         return;
     }
 
-    const nombre = document.getElementById('nombre').value;
+    const nombreInput = document.getElementById('nombre');
+    const nombre = nombreInput.value.trim();
     const tiene_acceso = document.getElementById('tiene_acceso').checked;
 
+    if (!nombre) {
+        alert("Por favor ingresa el nombre del usuario.");
+        return;
+    }
+
     btnGuardar.disabled = true;
-    btnGuardar.innerText = "Guardando...";
+    btnGuardar.innerText = "Guardando en Base de Datos...";
 
     try {
-        await fetch(`${API_URL}/usuarios`, {
+        const res = await fetch(`${API_URL}/usuarios`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nombre, face_descriptor: capturedDescriptor, tiene_acceso })
         });
-        
-        // Cerrar modal y limpiar
+
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({ error: 'Error del servidor (' + res.status + ')' }));
+            throw new Error(errorData.error || 'Error al registrar el usuario en el servidor');
+        }
+
+        const data = await res.json();
+        console.log('Usuario guardado exitosamente:', data);
+
+        // Cerrar modal y limpiar formulario
         modalUsuario.classList.remove('show');
         formUsuario.reset();
         capturedDescriptor = null;
         btnGuardar.innerText = "Guardar Rostro y Usuario";
-        
-        cargarUsuarios();
-        alert("Usuario registrado con éxito.");
+        btnGuardar.disabled = false;
+
+        // Actualizar tabla inmediatamente en la vista
+        await cargarUsuarios();
+        alert(`¡Usuario "${nombre}" registrado con éxito!`);
     } catch (error) {
-        alert('Error al crear usuario');
+        console.error('Error al crear usuario:', error);
+        alert(`Error al guardar usuario: ${error.message}`);
         btnGuardar.disabled = false;
         btnGuardar.innerText = "Guardar Rostro y Usuario";
     }

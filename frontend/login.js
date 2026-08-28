@@ -17,11 +17,31 @@ let currentUser = null;
 // ==========================================
 async function init() {
     estadoLogin.innerText = "Cargando modelos de Inteligencia Artificial...";
+    const uriList = [
+        './models',
+        'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights',
+        'https://vladmandic.github.io/face-api/model/'
+    ];
+
+    let modelsLoaded = false;
+    for (const uri of uriList) {
+        try {
+            await faceapi.nets.ssdMobilenetv1.loadFromUri(uri);
+            await faceapi.nets.faceLandmark68Net.loadFromUri(uri);
+            await faceapi.nets.faceRecognitionNet.loadFromUri(uri);
+            modelsLoaded = true;
+            break;
+        } catch (err) {
+            console.warn(`No se pudieron cargar modelos desde ${uri}:`, err.message);
+        }
+    }
+
+    if (!modelsLoaded) {
+        estadoLogin.innerText = "Error cargando modelos. Asegúrate de ejecutar bajo un servidor web local.";
+        return;
+    }
+
     try {
-        await faceapi.nets.ssdMobilenetv1.loadFromUri('https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights');
-        await faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights');
-        await faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights');
-        
         estadoLogin.innerText = "Descargando base de datos de rostros...";
         await cargarRostrosDesdeBD();
         
@@ -29,7 +49,7 @@ async function init() {
         iniciarCamara();
     } catch(err) {
         console.error(err);
-        estadoLogin.innerText = "Error. Inicia el servidor web (Live Server o similar).";
+        estadoLogin.innerText = "Error al conectar con la base de datos o iniciar cámara.";
     }
 }
 
