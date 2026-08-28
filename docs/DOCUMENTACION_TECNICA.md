@@ -14,12 +14,14 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 | Método | Ruta | Propósito | Autenticación |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/admin/login` | Autenticación de administradores | Pública / Credenciales |
-| `GET` | `/api/usuarios` | Listar usuarios registrados para la tabla administrativa | Pública |
-| `GET` | `/api/rostros` | Descargar vectores biométricos para el motor de matching | Pública |
-| `POST` | `/api/usuarios` | Registrar un nuevo usuario y su vector de 128 flotantes | Pública |
+| `GET` | `/api/usuarios` | Listar usuarios registrados con sus permisos de dispositivos | Pública |
+| `GET` | `/api/rostros` | Descargar vectores biométricos y permisos para matching | Pública |
+| `POST` | `/api/usuarios` | Registrar un nuevo usuario con vector facial y permisos | Pública |
+| `PUT` | `/api/usuarios/:id` | Actualizar nombre, estado de acceso y permisos de dispositivos | Pública |
+| `DELETE` | `/api/usuarios/:id` | Eliminar usuario de la base de datos | Pública |
 | `POST` | `/api/recibir_log` | Registrar eventos de auditoría de acceso | Pública |
 | `GET` | `/api/logs` | Consultar los últimos 50 registros de acceso | Pública |
-| `POST` | `/api/comando` | Encolar una instrucción domótica para el ESP8266 | Pública |
+| `POST` | `/api/comando` | Encolar una instrucción domótica validando permisos | Pública |
 | `GET` | `/api/check_comando` | Desencolar el comando pendiente más antiguo (FIFO) para el ESP8266 | Pública |
 
 ---
@@ -52,7 +54,7 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 ---
 
 #### `GET /api/usuarios`
-- **Descripción:** Retorna los datos básicos de todos los usuarios registrados (excluyendo el vector biométrico para optimizar ancho de banda).
+- **Descripción:** Retorna los datos de todos los usuarios registrados incluyendo sus permisos de dispositivos (excluyendo el vector biométrico para optimizar ancho de banda).
 - **Respuesta Exitosa (200 OK):**
 ```json
 [
@@ -60,6 +62,7 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
     "id": 1,
     "nombre": "Carlos Gómez (Usuario Ejemplo)",
     "tiene_acceso": 1,
+    "permisos": ["puerta", "luces", "bomba"],
     "creado_en": "2026-08-28T14:59:45.000Z"
   }
 ]
@@ -67,30 +70,16 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 
 ---
 
-#### `GET /api/rostros`
-- **Descripción:** Obtiene los vectores descriptores faciales únicamente de aquellos usuarios con `tiene_acceso = TRUE`.
-- **Respuesta Exitosa (200 OK):**
-```json
-[
-  {
-    "id": 1,
-    "nombre": "Carlos Gómez (Usuario Ejemplo)",
-    "face_descriptor": "[-0.1245, 0.0892, ..., 0.0234]"
-  }
-]
-```
-
----
-
 #### `POST /api/usuarios`
-- **Descripción:** Registra un nuevo usuario en la base de datos junto con su descriptor biométrico.
+- **Descripción:** Registra un nuevo usuario en la base de datos junto con su descriptor biométrico y permisos de dispositivos.
 - **Headers Requeridos:** `Content-Type: application/json`
-- **Cuerpo de la Petición (Request Body):**
+- **Request Body:**
 ```json
 {
   "nombre": "Juan Pérez",
   "face_descriptor": [-0.145892, 0.098231, 0.124589, "...128 flotantes..."],
-  "tiene_acceso": true
+  "tiene_acceso": true,
+  "permisos": ["puerta", "luces"]
 }
 ```
 - **Respuesta Exitosa (200 OK):**
@@ -98,39 +87,69 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 {
   "id": 2,
   "nombre": "Juan Pérez",
-  "tiene_acceso": true
+  "tiene_acceso": true,
+  "permisos": ["puerta", "luces"]
 }
 ```
 
 ---
 
-#### `POST /api/recibir_log`
-- **Descripción:** Registra un intento de acceso en la tabla de auditoría.
+#### `PUT /api/usuarios/:id`
+- **Descripción:** Actualiza los datos y permisos de un usuario existente.
 - **Request Body:**
 ```json
 {
-  "id": 1,
-  "estado": "EXITO"
+  "nombre": "Juan Pérez Actualizado",
+  "tiene_acceso": true,
+  "permisos": ["luces", "bomba"]
 }
 ```
-- **Respuesta (200 OK):** Texto plano `OK`
+- **Respuesta Exitosa (200 OK):**
+```json
+{
+  "success": true,
+  "id": 2,
+  "nombre": "Juan Pérez Actualizado",
+  "tiene_acceso": true,
+  "permisos": ["luces", "bomba"]
+}
+```
+
+---
+
+#### `DELETE /api/usuarios/:id`
+- **Descripción:** Elimina permanentemente a un usuario y sus registros asociados.
+- **Respuesta Exitosa (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Usuario con ID 2 eliminado correctamente."
+}
+```
 
 ---
 
 #### `POST /api/comando`
-- **Descripción:** Registra un comando en la tabla `comandos` para ser consumido por el microcontrolador.
-- **Comandos Soportados:** `ABRIR_PUERTA`, `LUCES_ON`, `LUCES_OFF`, `BOMBA_ON`, `BOMBA_OFF`.
+- **Descripción:** Registra un comando en la tabla `comandos` para ser consumido por el microcontrolador, validando si el `userId` tiene permiso para el dispositivo.
+- **Comandos Soportados:** `ABRIR_PUERTA` (permiso: `puerta`), `LUCES_ON` / `LUCES_OFF` (permiso: `luces`), `BOMBA_ON` / `BOMBA_OFF` (permiso: `bomba`).
 - **Request Body:**
 ```json
 {
-  "accion": "ABRIR_PUERTA"
+  "accion": "ABRIR_PUERTA",
+  "userId": 1
 }
 ```
-- **Respuesta (200 OK):**
+- **Respuesta Exitosa (200 OK):**
 ```json
 {
   "success": true,
   "message": "Comando enviado: ABRIR_PUERTA"
+}
+```
+- **Respuesta Denegada (403 Forbidden):**
+```json
+{
+  "error": "No tienes permiso para controlar el dispositivo: puerta."
 }
 ```
 
@@ -138,9 +157,7 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 
 #### `GET /api/check_comando`
 - **Descripción:** Consulta consumida por el ESP8266 cada 2 segundos. Lee el primer comando no procesado, lo marca como `procesado = TRUE` y retorna la instrucción en texto plano.
-- **Respuesta:**
-  - Si hay comando pendiente: `ABRIR_PUERTA` (o la acción correspondiente).
-  - Si no hay comandos pendientes: `NONE`.
+- **Respuesta:** `ABRIR_PUERTA`, `LUCES_ON`, `LUCES_OFF`, `BOMBA_ON`, `BOMBA_OFF` o `NONE`.
 
 ---
 
@@ -167,6 +184,7 @@ Almacena las credenciales biométricas y permisos de cada persona registrada.
 | `nombre` | `VARCHAR(100)` | No | - | - | Nombre completo o alias del usuario |
 | `face_descriptor` | `LONGTEXT` | No | - | - | Vector de 128 dimensiones serializado en formato JSON |
 | `tiene_acceso` | `BOOLEAN` | Sí | - | `TRUE` | Bandera de autorización de acceso (1: Activo, 0: Bloqueado) |
+| `permisos` | `VARCHAR(255)` | Sí | - | `["puerta","luces","bomba"]` | Array JSON con dispositivos autorizados |
 | `creado_en` | `TIMESTAMP` | Sí | - | `CURRENT_TIMESTAMP` | Fecha y hora de creación del registro |
 
 ### 2.3. Tabla: `accesos_log`

@@ -49,9 +49,21 @@ async function inicializarBaseDatos() {
                 nombre VARCHAR(100) NOT NULL,
                 face_descriptor LONGTEXT NOT NULL,
                 tiene_acceso BOOLEAN DEFAULT TRUE,
+                permisos VARCHAR(255) DEFAULT '["puerta","luces","bomba"]',
                 creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        // Migración: Asegurar que la columna permisos exista en tablas previas
+        try {
+            const [columns] = await conn.query("SHOW COLUMNS FROM usuarios LIKE 'permisos'");
+            if (columns.length === 0) {
+                await conn.query(`ALTER TABLE usuarios ADD COLUMN permisos VARCHAR(255) DEFAULT '["puerta","luces","bomba"]'`);
+                console.log('🔄 Columna "permisos" añadida a la tabla usuarios.');
+            }
+        } catch (e) {
+            console.warn('Verificación de columna permisos:', e.message);
+        }
 
         // 3. Tabla Accesos Log
         await conn.query(`
@@ -89,8 +101,8 @@ async function inicializarBaseDatos() {
         if (userRows.length === 0) {
             const mockDescriptor = Array(128).fill(0).map((_, i) => Math.sin(i * 0.1) * 0.15);
             await conn.query(`
-                INSERT INTO usuarios (id, nombre, face_descriptor, tiene_acceso)
-                VALUES (1, 'Carlos Gómez (Usuario Ejemplo)', ?, TRUE)
+                INSERT INTO usuarios (id, nombre, face_descriptor, tiene_acceso, permisos)
+                VALUES (1, 'Carlos Gómez (Usuario Ejemplo)', ?, TRUE, '["puerta","luces","bomba"]')
             `, [JSON.stringify(mockDescriptor)]);
             console.log('👥 Usuario de ejemplo creado: "Carlos Gómez (Usuario Ejemplo)"');
 
@@ -134,7 +146,6 @@ app.post('/api/admin/login', async (req, res) => {
         }
 
         const admin = rows[0];
-        // Verificación de contraseña en texto plano (o configurable para hash)
         if (admin.password !== password.trim()) {
             return res.status(401).json({ success: false, error: 'Contraseña incorrecta.' });
         }
@@ -157,53 +168,135 @@ app.post('/api/admin/login', async (req, res) => {
 });
 
 // ==========================================
-// ENDPOINTS PARA EL PANEL Y USUARIOS
+// ENDPOINTS CRUD PARA USUARIOS Y ROSTROS
 // ==========================================
 
-// Obtener todos los usuarios registrados
+// 1. Obtener todos los usuarios registrados (con sus permisos)
 app.get('/api/usuarios', async (req, res) => {
     try {
-        // Solo traemos info básica para la tabla admin (sin el descriptor gigante)
-        const [rows] = await pool.query('SELECT id, nombre, tiene_acceso, creado_en FROM usuarios ORDER BY id DESC');
-        res.json(rows);
+        const [rows] = await pool.query('SELECT id, nombre, tiene_acceso, permisos, creado_en FROM usuarios ORDER BY id DESC');
+        
+        // Parsear permisos si vienen como string JSON
+        const usuarios = rows.map(u => {
+            let permisosParsed = ['puerta', 'luces', 'bomba'];
+            if (u.permisos) {
+                try {
+                    permisosParsed = typeof u.permisos === 'string' ? JSON.parse(u.permisos) : u.permisos;
+                } catch (e) {
+                    permisosParsed = ['puerta', 'luces', 'bomba'];
+                }
+            }
+            return {
+                ...u,
+                permisos: permisosParsed
+            };
+        });
+
+        res.json(usuarios);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Obtener TODOS los descriptores faciales (para cargar en el navegador y hacer matching)
+// 2. Obtener descriptores faciales y permisos para matching biométrico
 app.get('/api/rostros', async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT id, nombre, face_descriptor FROM usuarios WHERE tiene_acceso = TRUE');
-        res.json(rows);
+        const [rows] = await pool.query('SELECT id, nombre, face_descriptor, permisos FROM usuarios WHERE tiene_acceso = TRUE');
+        const rostros = rows.map(u => {
+            let permisosParsed = ['puerta', 'luces', 'bomba'];
+            if (u.permisos) {
+                try {
+                    permisosParsed = typeof u.permisos === 'string' ? JSON.parse(u.permisos) : u.permisos;
+                } catch (e) {}
+            }
+            return {
+                ...u,
+                permisos: permisosParsed
+            };
+        });
+        res.json(rostros);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Registrar nuevo usuario con su rostro
+// 3. Registrar nuevo usuario con su rostro y permisos de dispositivos
 app.post('/api/usuarios', async (req, res) => {
-    const { nombre, face_descriptor, tiene_acceso } = req.body;
+    const { nombre, face_descriptor, tiene_acceso, permisos } = req.body;
     if (!nombre || !face_descriptor) {
         return res.status(400).json({ error: 'Nombre y descriptor facial son obligatorios.' });
     }
 
+    const permisosStr = JSON.stringify(Array.isArray(permisos) && permisos.length > 0 ? permisos : ['puerta', 'luces', 'bomba']);
+
     try {
         const [result] = await pool.query(
-            'INSERT INTO usuarios (nombre, face_descriptor, tiene_acceso) VALUES (?, ?, ?)',
-            [nombre, JSON.stringify(face_descriptor), tiene_acceso !== false]
+            'INSERT INTO usuarios (nombre, face_descriptor, tiene_acceso, permisos) VALUES (?, ?, ?, ?)',
+            [nombre.trim(), JSON.stringify(face_descriptor), tiene_acceso !== false, permisosStr]
         );
-        console.log(`👤 Usuario registrado: [ID: ${result.insertId}] ${nombre}`);
-        res.json({ id: result.insertId, nombre, tiene_acceso });
+        console.log(`👤 Usuario registrado: [ID: ${result.insertId}] ${nombre} | Permisos: ${permisosStr}`);
+        res.json({ id: result.insertId, nombre, tiene_acceso, permisos: JSON.parse(permisosStr) });
     } catch (error) {
         console.error('❌ Error al registrar usuario:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
 
-// Registrar un log de acceso (cuando alguien se loguea con el rostro)
+// 4. Editar usuario existente (Nombre, Acceso, Permisos de Dispositivos)
+app.put('/api/usuarios/:id', async (req, res) => {
+    const { id } = req.params;
+    const { nombre, tiene_acceso, permisos } = req.body;
+
+    if (!nombre) {
+        return res.status(400).json({ error: 'El nombre es obligatorio.' });
+    }
+
+    const permisosStr = JSON.stringify(Array.isArray(permisos) ? permisos : ['puerta', 'luces', 'bomba']);
+
+    try {
+        const [result] = await pool.query(
+            'UPDATE usuarios SET nombre = ?, tiene_acceso = ?, permisos = ? WHERE id = ?',
+            [nombre.trim(), tiene_acceso === true || tiene_acceso === 1, permisosStr, id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado.' });
+        }
+
+        console.log(`✏️ Usuario actualizado: [ID: ${id}] ${nombre} | Permisos: ${permisosStr} | Acceso: ${tiene_acceso}`);
+        res.json({ success: true, id: parseInt(id), nombre, tiene_acceso, permisos: JSON.parse(permisosStr) });
+    } catch (error) {
+        console.error('❌ Error al actualizar usuario:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 5. Eliminar usuario
+app.delete('/api/usuarios/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const [result] = await pool.query('DELETE FROM usuarios WHERE id = ?', [id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado.' });
+        }
+
+        console.log(`🗑️ Usuario eliminado: [ID: ${id}]`);
+        res.json({ success: true, message: `Usuario con ID ${id} eliminado correctamente.` });
+    } catch (error) {
+        console.error('❌ Error al eliminar usuario:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ==========================================
+// LOGS Y COMANDOS DOMÓTICOS
+// ==========================================
+
+// Registrar un log de acceso
 app.post('/api/recibir_log', async (req, res) => {
-    const { id, estado } = req.body; // id es el ID del usuario en MySQL
+    const { id, estado } = req.body;
     try {
         await pool.query(
             'INSERT INTO accesos_log (face_id, estado, fecha_dispositivo) VALUES (?, ?, NOW())',
@@ -219,9 +312,45 @@ app.post('/api/recibir_log', async (req, res) => {
 
 // Enviar comando para los relés
 app.post('/api/comando', async (req, res) => {
-    const { accion } = req.body; // Ej: ABRIR_PUERTA, LUCES_ON, LUCES_OFF
+    const { accion, userId } = req.body; // Ej: ABRIR_PUERTA, LUCES_ON, LUCES_OFF
+    if (!accion) {
+        return res.status(400).json({ error: 'Acción requerida.' });
+    }
+
     try {
+        // Validación de permisos por usuario si se proporciona userId
+        if (userId) {
+            const [userRows] = await pool.query('SELECT tiene_acceso, permisos FROM usuarios WHERE id = ?', [userId]);
+            if (userRows.length > 0) {
+                const user = userRows[0];
+                if (!user.tiene_acceso) {
+                    return res.status(403).json({ error: 'El usuario tiene el acceso global deshabilitado.' });
+                }
+                
+                let userPerms = ['puerta', 'luces', 'bomba'];
+                try {
+                    userPerms = typeof user.permisos === 'string' ? JSON.parse(user.permisos) : user.permisos;
+                } catch (e) {}
+
+                // Validar correspondencia de comando y permiso
+                const mapComandoPermiso = {
+                    'ABRIR_PUERTA': 'puerta',
+                    'LUCES_ON': 'luces',
+                    'LUCES_OFF': 'luces',
+                    'BOMBA_ON': 'bomba',
+                    'BOMBA_OFF': 'bomba'
+                };
+
+                const permisoRequerido = mapComandoPermiso[accion];
+                if (permisoRequerido && !userPerms.includes(permisoRequerido)) {
+                    console.warn(`⛔ Intento no autorizado: Usuario ID ${userId} sin permiso para "${permisoRequerido}"`);
+                    return res.status(403).json({ error: `No tienes permiso para controlar el dispositivo: ${permisoRequerido}.` });
+                }
+            }
+        }
+
         await pool.query("INSERT INTO comandos (comando) VALUES (?)", [accion]);
+        console.log(`⚡ Comando encolado para ESP8266: ${accion}`);
         res.json({ success: true, message: 'Comando enviado: ' + accion });
     } catch (error) {
         res.status(500).json({ error: error.message });

@@ -5,7 +5,6 @@ const API_URL = 'http://localhost:3000/api';
 // ==========================================
 const adminSessionData = localStorage.getItem('admin_session');
 if (!adminSessionData) {
-    // Si no ha iniciado sesión como administrador, redirigir al login administrativo
     window.location.href = 'admin_login.html';
 }
 
@@ -42,10 +41,16 @@ const navItems = document.querySelectorAll('.nav-menu li');
 const sections = document.querySelectorAll('.content-section');
 const tablaUsuarios = document.getElementById('tabla-usuarios');
 const tablaLogs = document.getElementById('tabla-logs');
+
+// Modales
 const modalUsuario = document.getElementById('modal-usuario');
+const modalEditarUsuario = document.getElementById('modal-editar-usuario');
 const btnNuevoUsuario = document.getElementById('btn-nuevo-usuario');
 const closeBtns = document.querySelectorAll('.close-modal');
+
+// Formularios
 const formUsuario = document.getElementById('form-usuario');
+const formEditarUsuario = document.getElementById('form-editar-usuario');
 const btnRefreshLogs = document.getElementById('btn-refresh-logs');
 
 // IA y Video
@@ -55,7 +60,12 @@ const estadoIA = document.getElementById('estado-ia');
 const btnGuardar = document.getElementById('btn-guardar');
 let capturedDescriptor = null;
 
-// Navegación
+// Cache local de usuarios
+let listaUsuarios = [];
+
+// ==========================================
+// NAVEGACIÓN ENTRE SECCIONES
+// ==========================================
 navItems.forEach(item => {
     item.addEventListener('click', () => {
         navItems.forEach(nav => nav.classList.remove('active'));
@@ -68,17 +78,19 @@ navItems.forEach(item => {
     });
 });
 
-// Cargar Usuarios (Admin Panel)
+// ==========================================
+// CARGAR Y RENDERIZAR USUARIOS (CRUD)
+// ==========================================
 async function cargarUsuarios() {
     try {
         const res = await fetch(`${API_URL}/usuarios`);
-        const usuarios = await res.json();
+        listaUsuarios = await res.json();
         tablaUsuarios.innerHTML = '';
 
-        if (usuarios.length === 0) {
+        if (listaUsuarios.length === 0) {
             tablaUsuarios.innerHTML = `
                 <tr>
-                    <td colspan="4" style="text-align: center; color: var(--text-secondary); padding: 30px;">
+                    <td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 30px;">
                         <i class="fa-solid fa-users-slash" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
                         No hay usuarios registrados aún. Presiona <strong>"Registrar Rostro"</strong> para crear uno.
                     </td>
@@ -87,19 +99,49 @@ async function cargarUsuarios() {
             return;
         }
 
-        usuarios.forEach(user => {
+        listaUsuarios.forEach(user => {
             const fecha = user.creado_en ? new Date(user.creado_en).toLocaleString() : 'Reciente';
+            
+            // Renderizar badges de dispositivos permitidos
+            const perms = Array.isArray(user.permisos) ? user.permisos : ['puerta', 'luces', 'bomba'];
+            let badgesHtml = '<div class="devices-badges-wrapper">';
+            if (perms.length === 0) {
+                badgesHtml += '<span class="badge-device badge-none"><i class="fa-solid fa-ban"></i> Sin permisos</span>';
+            } else {
+                if (perms.includes('puerta')) {
+                    badgesHtml += '<span class="badge-device badge-door"><i class="fa-solid fa-door-open"></i> Puerta</span>';
+                }
+                if (perms.includes('luces')) {
+                    badgesHtml += '<span class="badge-device badge-lights"><i class="fa-solid fa-lightbulb"></i> Luces</span>';
+                }
+                if (perms.includes('bomba')) {
+                    badgesHtml += '<span class="badge-device badge-pump"><i class="fa-solid fa-water"></i> Bomba</span>';
+                }
+            }
+            badgesHtml += '</div>';
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><strong>#${user.id}</strong></td>
-                <td><i class="fa-solid fa-user" style="color: var(--primary-color); margin-right: 8px;"></i> ${user.nombre}</td>
+                <td><i class="fa-solid fa-user" style="color: var(--primary-color); margin-right: 8px;"></i> <strong>${user.nombre}</strong></td>
                 <td>
                     <span class="badge ${user.tiene_acceso ? 'badge-success' : 'badge-danger'}">
                         <i class="fa-solid ${user.tiene_acceso ? 'fa-check' : 'fa-ban'}"></i>
                         ${user.tiene_acceso ? 'Habilitado' : 'Denegado'}
                     </span>
                 </td>
+                <td>${badgesHtml}</td>
                 <td style="color: var(--text-secondary); font-size: 0.85rem;">${fecha}</td>
+                <td style="text-align: center;">
+                    <div class="action-buttons" style="justify-content: center;">
+                        <button class="btn btn-sm btn-action-edit" onclick="abrirModalEditar(${user.id})" title="Editar usuario y permisos">
+                            <i class="fa-solid fa-pen-to-square"></i> Editar
+                        </button>
+                        <button class="btn btn-sm btn-action-delete" onclick="eliminarUsuario(${user.id}, '${escapeHtml(user.nombre)}')" title="Eliminar usuario">
+                            <i class="fa-solid fa-trash-can"></i> Eliminar
+                        </button>
+                    </div>
+                </td>
             `;
             tablaUsuarios.appendChild(tr);
         });
@@ -108,7 +150,98 @@ async function cargarUsuarios() {
     }
 }
 
-// Cargar Logs
+function escapeHtml(text) {
+    return text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+// ==========================================
+// EDITAR USUARIO
+// ==========================================
+function abrirModalEditar(id) {
+    const user = listaUsuarios.find(u => u.id === id);
+    if (!user) return;
+
+    document.getElementById('edit-user-id').value = user.id;
+    document.getElementById('edit-nombre').value = user.nombre;
+    document.getElementById('edit-tiene_acceso').checked = user.tiene_acceso === 1 || user.tiene_acceso === true;
+
+    const perms = Array.isArray(user.permisos) ? user.permisos : ['puerta', 'luces', 'bomba'];
+    document.getElementById('edit-perm-puerta').checked = perms.includes('puerta');
+    document.getElementById('edit-perm-luces').checked = perms.includes('luces');
+    document.getElementById('edit-perm-bomba').checked = perms.includes('bomba');
+
+    modalEditarUsuario.classList.add('show');
+}
+
+formEditarUsuario.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const id = document.getElementById('edit-user-id').value;
+    const nombre = document.getElementById('edit-nombre').value.trim();
+    const tiene_acceso = document.getElementById('edit-tiene_acceso').checked;
+
+    const permisos = [];
+    if (document.getElementById('edit-perm-puerta').checked) permisos.push('puerta');
+    if (document.getElementById('edit-perm-luces').checked) permisos.push('luces');
+    if (document.getElementById('edit-perm-bomba').checked) permisos.push('bomba');
+
+    const btnSubmit = document.getElementById('btn-actualizar-usuario');
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+    try {
+        const res = await fetch(`${API_URL}/usuarios/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre, tiene_acceso, permisos })
+        });
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({ error: 'Error ' + res.status }));
+            throw new Error(errData.error || 'Error al actualizar');
+        }
+
+        modalEditarUsuario.classList.remove('show');
+        await cargarUsuarios();
+        alert(`¡Usuario "${nombre}" actualizado correctamente!`);
+    } catch (error) {
+        console.error('Error al actualizar usuario:', error);
+        alert(`Error al guardar cambios: ${error.message}`);
+    } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = '<i class="fa-solid fa-check"></i> Guardar Cambios';
+    }
+});
+
+// ==========================================
+// ELIMINAR USUARIO
+// ==========================================
+async function eliminarUsuario(id, nombre) {
+    if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente a "${nombre}" (ID: ${id})?\n\nEsta acción borrará sus datos biométricos y permisos de acceso.`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_URL}/usuarios/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({ error: 'Error ' + res.status }));
+            throw new Error(errData.error || 'Error al eliminar');
+        }
+
+        await cargarUsuarios();
+        alert(`Usuario "${nombre}" eliminado con éxito.`);
+    } catch (error) {
+        console.error('Error al eliminar usuario:', error);
+        alert(`Error al eliminar usuario: ${error.message}`);
+    }
+}
+
+// ==========================================
+// CARGAR LOGS DE AUDITORÍA
+// ==========================================
 async function cargarLogs() {
     try {
         const res = await fetch(`${API_URL}/logs`);
@@ -149,9 +282,8 @@ async function cargarLogs() {
 }
 
 // ==========================================
-// LÓGICA DE RECONOCIMIENTO FACIAL (face-api.js)
+// LÓGICA DE RECONOCIMIENTO FACIAL (REGISTRO)
 // ==========================================
-
 async function cargarModelos() {
     estadoIA.innerText = "Cargando modelos de IA...";
     const uriList = [
@@ -191,7 +323,7 @@ video.addEventListener('play', () => {
     estadoIA.innerText = "Analizando rostro...";
 
     setInterval(async () => {
-        if(!modalUsuario.classList.contains('show')) return; // No analizar si modal está cerrado
+        if(!modalUsuario.classList.contains('show')) return;
 
         const detections = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
         
@@ -203,7 +335,7 @@ video.addEventListener('play', () => {
             faceapi.draw.drawDetections(canvas, resizedDetections);
             faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
             
-            capturedDescriptor = Array.from(detections.descriptor); // Convertir Float32Array a Array normal
+            capturedDescriptor = Array.from(detections.descriptor);
             estadoIA.innerText = "¡Rostro detectado y capturado! Puedes guardar.";
             estadoIA.style.color = "var(--success-color)";
             btnGuardar.disabled = false;
@@ -213,10 +345,10 @@ video.addEventListener('play', () => {
             btnGuardar.disabled = true;
             capturedDescriptor = null;
         }
-    }, 500); // 2 FPS para no saturar
+    }, 500);
 });
 
-// Guardar Usuario
+// Guardar Nuevo Usuario con Rostro y Permisos
 formUsuario.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!capturedDescriptor) {
@@ -227,6 +359,11 @@ formUsuario.addEventListener('submit', async (e) => {
     const nombreInput = document.getElementById('nombre');
     const nombre = nombreInput.value.trim();
     const tiene_acceso = document.getElementById('tiene_acceso').checked;
+
+    const permisos = [];
+    if (document.getElementById('perm-puerta').checked) permisos.push('puerta');
+    if (document.getElementById('perm-luces').checked) permisos.push('luces');
+    if (document.getElementById('perm-bomba').checked) permisos.push('bomba');
 
     if (!nombre) {
         alert("Por favor ingresa el nombre del usuario.");
@@ -240,7 +377,7 @@ formUsuario.addEventListener('submit', async (e) => {
         const res = await fetch(`${API_URL}/usuarios`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre, face_descriptor: capturedDescriptor, tiene_acceso })
+            body: JSON.stringify({ nombre, face_descriptor: capturedDescriptor, tiene_acceso, permisos })
         });
 
         if (!res.ok) {
@@ -248,17 +385,12 @@ formUsuario.addEventListener('submit', async (e) => {
             throw new Error(errorData.error || 'Error al registrar el usuario en el servidor');
         }
 
-        const data = await res.json();
-        console.log('Usuario guardado exitosamente:', data);
-
-        // Cerrar modal y limpiar formulario
         modalUsuario.classList.remove('show');
         formUsuario.reset();
         capturedDescriptor = null;
         btnGuardar.innerText = "Guardar Rostro y Usuario";
         btnGuardar.disabled = false;
 
-        // Actualizar tabla inmediatamente en la vista
         await cargarUsuarios();
         alert(`¡Usuario "${nombre}" registrado con éxito!`);
     } catch (error) {
@@ -269,7 +401,9 @@ formUsuario.addEventListener('submit', async (e) => {
     }
 });
 
-// Modales
+// ==========================================
+// MODALES Y EVENTOS
+// ==========================================
 btnNuevoUsuario.addEventListener('click', () => {
     modalUsuario.classList.add('show');
     if(!video.srcObject) cargarModelos();
@@ -277,9 +411,10 @@ btnNuevoUsuario.addEventListener('click', () => {
 
 closeBtns.forEach(btn => btn.addEventListener('click', () => {
     modalUsuario.classList.remove('show');
+    modalEditarUsuario.classList.remove('show');
 }));
 
 btnRefreshLogs.addEventListener('click', cargarLogs);
 
-// Init
+// Inicializar tabla
 cargarUsuarios();

@@ -8,6 +8,8 @@
     --danger-color: #ef4444;
     --danger-hover: #dc2626;
     --success-color: #10b981;
+    --warning-color: #f59e0b;
+    --info-color: #06b6d4;
     --border-color: #334155;
 }
 
@@ -128,9 +130,10 @@ header {
 }
 
 .data-table th, .data-table td {
-    padding: 16px 24px;
+    padding: 16px 20px;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
 }
 
 .data-table th {
@@ -156,9 +159,85 @@ header {
     border-radius: 9999px;
     font-size: 0.75rem;
     font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
 }
-.badge-success { background-color: rgba(16, 185, 129, 0.2); color: var(--success-color); }
-.badge-danger { background-color: rgba(239, 68, 68, 0.2); color: var(--danger-color); }
+.badge-success { background-color: rgba(16, 185, 129, 0.2); color: var(--success-color); border: 1px solid rgba(16, 185, 129, 0.3); }
+.badge-danger { background-color: rgba(239, 68, 68, 0.2); color: var(--danger-color); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+/* Dispositivos Badges */
+.devices-badges-wrapper {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.badge-device {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.badge-door {
+    background: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.badge-lights {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fcd34d;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-pump {
+    background: rgba(6, 182, 212, 0.15);
+    color: #67e8f9;
+    border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+.badge-none {
+    background: rgba(148, 163, 184, 0.1);
+    color: var(--text-secondary);
+    border: 1px dashed rgba(148, 163, 184, 0.3);
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    border-radius: 6px;
+}
+
+.btn-action-edit {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--primary-color);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.btn-action-edit:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-action-delete {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger-color);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.btn-action-delete:hover {
+    background: var(--danger-color);
+    color: white;
+}
 
 .btn {
     padding: 10px 16px;
@@ -174,12 +253,10 @@ header {
 }
 .btn-primary { background-color: var(--primary-color); color: white; }
 .btn-primary:hover { background-color: var(--primary-hover); }
-.btn-danger { background-color: var(--danger-color); color: white; width: 100%; }
+.btn-danger { background-color: var(--danger-color); color: white; }
 .btn-danger:hover { background-color: var(--danger-hover); }
 .btn-secondary { background-color: var(--border-color); color: var(--text-primary); }
 .btn-secondary:hover { background-color: #475569; }
-.btn-icon { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px; font-size: 1.1rem; }
-.btn-icon:hover { color: var(--danger-color); }
 
 .w-100 { width: 100%; }
 
@@ -188,11 +265,13 @@ header {
     display: none;
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     z-index: 1000;
     align-items: center;
     justify-content: center;
+    padding: 20px;
 }
 
 .modal.show { display: flex; animation: fadeIn 0.2s; }
@@ -200,10 +279,12 @@ header {
 .modal-content {
     background-color: var(--bg-card);
     width: 100%;
-    max-width: 450px;
-    border-radius: 12px;
+    max-width: 540px;
+    border-radius: 16px;
     border: 1px solid var(--border-color);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .modal-header {
@@ -218,6 +299,7 @@ header {
     color: var(--text-secondary);
     font-size: 1.5rem;
     cursor: pointer;
+    transition: color 0.2s;
 }
 
 .close-modal:hover { color: white; }
@@ -233,12 +315,13 @@ header {
     margin-bottom: 8px;
     color: var(--text-secondary);
     font-size: 0.875rem;
+    font-weight: 500;
 }
 
 .form-group input[type="text"] {
     width: 100%;
     padding: 12px;
-    background-color: rgba(0, 0, 0, 0.2);
+    background-color: rgba(0, 0, 0, 0.25);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     color: white;
@@ -248,6 +331,43 @@ header {
 
 .form-group input[type="text"]:focus {
     border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Permissions Selection Box */
+.permissions-box {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.permission-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(51, 65, 85, 0.6);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.permission-item:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.permission-item-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: var(--text-primary);
 }
 
 .checkbox-group {
@@ -263,32 +383,6 @@ header {
 }
 
 .checkbox-group label { margin-bottom: 0; cursor: pointer; }
-
-/* Switch Toggle (Custom Checkbox) */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 40px;
-  height: 20px;
-}
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider {
-  position: absolute; cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: var(--border-color);
-  transition: .4s;
-  border-radius: 34px;
-}
-.slider:before {
-  position: absolute; content: "";
-  height: 16px; width: 16px;
-  left: 2px; bottom: 2px;
-  background-color: white;
-  transition: .4s;
-  border-radius: 50%;
-}
-input:checked + .slider { background-color: var(--success-color); }
-input:checked + .slider:before { transform: translateX(20px); }
 
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }

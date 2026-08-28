@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Administración - Feria</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Cargar face-api.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
@@ -71,7 +71,7 @@
                     <div>
                         <h2>Usuarios Registrados</h2>
                         <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 4px;">
-                            Lista de personas autorizadas para reconocimiento facial y control domótico
+                            Gestiona usuarios, reconocimiento facial y permisos granulares de dispositivos IoT
                         </p>
                     </div>
                     <button id="btn-nuevo-usuario" class="btn btn-primary">
@@ -85,8 +85,10 @@
                             <tr>
                                 <th>ID DB</th>
                                 <th>Nombre</th>
-                                <th>Acceso Habilitado</th>
+                                <th>Acceso Global</th>
+                                <th>Dispositivos Autorizados</th>
                                 <th>Fecha de Registro</th>
+                                <th style="text-align: center;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="tabla-usuarios">
@@ -130,7 +132,7 @@
     <div id="modal-usuario" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
-                <h3>Registrar Nuevo Rostro</h3>
+                <h3><i class="fa-solid fa-user-plus" style="color: var(--primary-color);"></i> Registrar Nuevo Rostro</h3>
                 <span class="close-modal">&times;</span>
             </div>
             <div class="modal-body">
@@ -141,7 +143,7 @@
                     </div>
                     
                     <div class="form-group" style="text-align: center;">
-                        <label>Captura Facial (Mira a la cámara)</label>
+                        <label>Captura Facial (Mira fijamente a la cámara)</label>
                         <div style="position: relative; display: inline-block;">
                             <video id="video-registro" width="400" height="300" autoplay muted style="border-radius: 8px; border: 2px solid var(--border-color);"></video>
                             <canvas id="canvas-registro" style="position: absolute; top: 0; left: 0;"></canvas>
@@ -149,11 +151,99 @@
                         <p id="estado-ia" style="color: var(--text-secondary); margin-top: 10px;">Cargando modelos de IA...</p>
                     </div>
 
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="tiene_acceso" checked>
-                        <label for="tiene_acceso">Habilitar acceso inmediato</label>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-sliders"></i> Permisos de Control por Dispositivo</label>
+                        <div class="permissions-box">
+                            <label class="permission-item">
+                                <div class="permission-item-label">
+                                    <i class="fa-solid fa-door-open" style="color: #60a5fa;"></i>
+                                    <span>Puerta / Cerradura Eléctrica</span>
+                                </div>
+                                <input type="checkbox" id="perm-puerta" value="puerta" checked>
+                            </label>
+                            <label class="permission-item">
+                                <div class="permission-item-label">
+                                    <i class="fa-solid fa-lightbulb" style="color: #fbbf24;"></i>
+                                    <span>Iluminación Domótica</span>
+                                </div>
+                                <input type="checkbox" id="perm-luces" value="luces" checked>
+                            </label>
+                            <label class="permission-item">
+                                <div class="permission-item-label">
+                                    <i class="fa-solid fa-water" style="color: #22d3ee;"></i>
+                                    <span>Bomba de Agua</span>
+                                </div>
+                                <input type="checkbox" id="perm-bomba" value="bomba" checked>
+                            </label>
+                        </div>
                     </div>
-                    <button type="submit" id="btn-guardar" class="btn btn-primary w-100" disabled>Guardar Rostro y Usuario</button>
+
+                    <div class="form-group checkbox-group" style="margin-top: 15px;">
+                        <input type="checkbox" id="tiene_acceso" checked>
+                        <label for="tiene_acceso">Habilitar acceso general del usuario</label>
+                    </div>
+                    <button type="submit" id="btn-guardar" class="btn btn-primary w-100" style="padding: 12px; font-size: 1rem;" disabled>
+                        <i class="fa-solid fa-floppy-disk"></i> Guardar Rostro y Usuario
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Editar Usuario y Permisos -->
+    <div id="modal-editar-usuario" class="modal">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-user-pen" style="color: var(--primary-color);"></i> Editar Usuario y Permisos</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="form-editar-usuario">
+                    <input type="hidden" id="edit-user-id">
+
+                    <div class="form-group">
+                        <label for="edit-nombre">Nombre Completo</label>
+                        <input type="text" id="edit-nombre" required placeholder="Nombre del usuario">
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-sliders"></i> Dispositivos Permitidos para este Usuario</label>
+                        <div class="permissions-box">
+                            <label class="permission-item">
+                                <div class="permission-item-label">
+                                    <i class="fa-solid fa-door-open" style="color: #60a5fa;"></i>
+                                    <span>Puerta / Cerradura Eléctrica</span>
+                                </div>
+                                <input type="checkbox" id="edit-perm-puerta" value="puerta">
+                            </label>
+                            <label class="permission-item">
+                                <div class="permission-item-label">
+                                    <i class="fa-solid fa-lightbulb" style="color: #fbbf24;"></i>
+                                    <span>Iluminación Domótica</span>
+                                </div>
+                                <input type="checkbox" id="edit-perm-luces" value="luces">
+                            </label>
+                            <label class="permission-item">
+                                <div class="permission-item-label">
+                                    <i class="fa-solid fa-water" style="color: #22d3ee;"></i>
+                                    <span>Bomba de Agua</span>
+                                </div>
+                                <input type="checkbox" id="edit-perm-bomba" value="bomba">
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group checkbox-group" style="margin-top: 15px;">
+                        <input type="checkbox" id="edit-tiene_acceso">
+                        <label for="edit-tiene_acceso">Acceso general habilitado</label>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 24px;">
+                        <button type="button" class="btn btn-secondary w-100 close-modal">Cancelar</button>
+                        <button type="submit" id="btn-actualizar-usuario" class="btn btn-primary w-100">
+                            <i class="fa-solid fa-check"></i> Guardar Cambios
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>

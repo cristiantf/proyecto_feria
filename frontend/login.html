@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal de Acceso Biométrico - Control Domótico</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
@@ -36,28 +36,51 @@
             border-radius: 16px;
             border: 1px solid var(--border-color);
             width: 100%;
-            max-width: 600px;
+            max-width: 640px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
             animation: fadeIn 0.4s ease;
+        }
+
+        .user-permissions-banner {
+            margin-top: 14px;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
         }
 
         .grid-botones {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-top: 30px;
+            gap: 16px;
+            margin-top: 24px;
         }
 
         .btn-domotica {
-            padding: 20px;
-            font-size: 1.1rem;
+            padding: 18px 14px;
+            font-size: 1rem;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
             border-radius: 12px;
+            transition: all 0.2s;
         }
 
         .btn-domotica i {
-            font-size: 2rem;
+            font-size: 1.8rem;
+        }
+
+        .btn-domotica:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            filter: grayscale(0.8);
+            border: 1px dashed var(--border-color);
         }
 
         .demo-bar {
@@ -115,26 +138,37 @@
             <p style="color: var(--success-color); margin-top: 6px;">
                 <i class="fa-solid fa-circle-check"></i> Identidad Verificada - Acceso Concedido
             </p>
+
+            <!-- Banner de Permisos de Dispositivos del Usuario -->
+            <div id="banner-permisos" class="user-permissions-banner">
+                <span><i class="fa-solid fa-sliders"></i> Dispositivos autorizados:</span>
+                <span id="permisos-lista-display" class="devices-badges-wrapper"></span>
+            </div>
             
             <div class="grid-botones">
-                <button class="btn btn-primary btn-domotica" onclick="enviarComando('ABRIR_PUERTA')">
-                    <i class="fa-solid fa-door-open"></i> Abrir Puerta (3s)
+                <button id="btn-puerta" class="btn btn-primary btn-domotica" onclick="enviarComando('ABRIR_PUERTA')">
+                    <i class="fa-solid fa-door-open"></i>
+                    <span>Abrir Puerta (3s)</span>
                 </button>
-                <button class="btn btn-primary btn-domotica" onclick="enviarComando('LUCES_ON')" style="background-color: #f59e0b;">
-                    <i class="fa-solid fa-lightbulb"></i> Encender Luces
+                <button id="btn-luces-on" class="btn btn-primary btn-domotica" onclick="enviarComando('LUCES_ON')" style="background-color: #f59e0b;">
+                    <i class="fa-solid fa-lightbulb"></i>
+                    <span>Encender Luces</span>
                 </button>
-                <button class="btn btn-secondary btn-domotica" onclick="enviarComando('LUCES_OFF')">
-                    <i class="fa-regular fa-lightbulb"></i> Apagar Luces
+                <button id="btn-luces-off" class="btn btn-secondary btn-domotica" onclick="enviarComando('LUCES_OFF')">
+                    <i class="fa-regular fa-lightbulb"></i>
+                    <span>Apagar Luces</span>
                 </button>
-                <button class="btn btn-primary btn-domotica" onclick="enviarComando('BOMBA_ON')" style="background-color: #06b6d4;">
-                    <i class="fa-solid fa-water"></i> Activar Bomba
+                <button id="btn-bomba-on" class="btn btn-primary btn-domotica" onclick="enviarComando('BOMBA_ON')" style="background-color: #06b6d4;">
+                    <i class="fa-solid fa-water"></i>
+                    <span>Activar Bomba</span>
                 </button>
-                <button class="btn btn-secondary btn-domotica" onclick="enviarComando('BOMBA_OFF')">
-                    <i class="fa-solid fa-droplet-slash"></i> Apagar Bomba
+                <button id="btn-bomba-off" class="btn btn-secondary btn-domotica" onclick="enviarComando('BOMBA_OFF')">
+                    <i class="fa-solid fa-droplet-slash"></i>
+                    <span>Apagar Bomba</span>
                 </button>
             </div>
             
-            <button class="btn btn-danger w-100" style="margin-top: 30px; padding: 14px;" onclick="cerrarSesion()">
+            <button class="btn btn-danger w-100" style="margin-top: 28px; padding: 14px;" onclick="cerrarSesion()">
                 <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión / Volver a Escanear
             </button>
         </div>
