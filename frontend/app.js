@@ -538,11 +538,26 @@ async function cargarLogs() {
 // LÓGICA DE RECONOCIMIENTO FACIAL (REGISTRO)
 // ==========================================
 async function cargarModelos() {
-    estadoIA.innerText = "Cargando modelos de IA...";
+    estadoIA.innerText = "Inicializando librería de visión artificial...";
+    
+    // Esperar a que la librería face-api esté disponible
+    let attempts = 0;
+    while (typeof faceapi === 'undefined' && attempts < 40) {
+        await new Promise(r => setTimeout(r, 100));
+        attempts++;
+    }
+
+    if (typeof faceapi === 'undefined') {
+        estadoIA.innerText = "Error: face-api.min.js no se pudo inicializar. Recarga la página.";
+        showToast('Error de Librería', 'La librería face-api no se cargó correctamente.', 'error');
+        return;
+    }
+
+    estadoIA.innerText = "Cargando redes neuronales de IA...";
     const uriList = [
         './models',
         '/models',
-        'models',
+        'http://localhost:3000/models',
         'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights',
         'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights'
     ];
@@ -556,7 +571,7 @@ async function cargarModelos() {
             iniciarCamara();
             return;
         } catch (err) {
-            console.warn(`No se pudieron cargar modelos desde ${uri}:`, err.message);
+            console.warn(`Intento de carga de modelos desde ${uri} falló:`, err.message);
         }
     }
     estadoIA.innerText = "Error cargando modelos. Verifica que el servidor Express esté corriendo.";

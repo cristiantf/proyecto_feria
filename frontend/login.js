@@ -66,11 +66,32 @@ function showToast(title, message, type = 'success', duration = 3500) {
 // INICIALIZACIÓN
 // ==========================================
 async function init() {
-    estadoLogin.innerText = "Cargando modelos de Inteligencia Artificial...";
+    // Si se abrió por doble clic como file://, redirigir al servidor local
+    if (window.location.protocol === 'file:') {
+        window.location.href = 'http://localhost:3000/login.html';
+        return;
+    }
+
+    estadoLogin.innerText = "Inicializando librería de visión artificial...";
+    
+    // Esperar a que la librería face-api esté disponible
+    let attempts = 0;
+    while (typeof faceapi === 'undefined' && attempts < 40) {
+        await new Promise(r => setTimeout(r, 100));
+        attempts++;
+    }
+
+    if (typeof faceapi === 'undefined') {
+        estadoLogin.innerText = "Error: face-api.min.js no se pudo inicializar. Recarga la página.";
+        showToast('Error de Librería', 'La librería face-api no se cargó correctamente.', 'error');
+        return;
+    }
+
+    estadoLogin.innerText = "Cargando redes neuronales (SSD MobileNet)...";
     const uriList = [
         './models',
         '/models',
-        'models',
+        'http://localhost:3000/models',
         'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights',
         'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights'
     ];
@@ -82,10 +103,10 @@ async function init() {
             await faceapi.nets.faceLandmark68Net.loadFromUri(uri);
             await faceapi.nets.faceRecognitionNet.loadFromUri(uri);
             modelsLoaded = true;
-            console.log('✅ Modelos face-api cargados desde:', uri);
+            console.log('✅ Modelos face-api cargados exitosamente desde:', uri);
             break;
         } catch (err) {
-            console.warn(`No se pudieron cargar modelos desde ${uri}:`, err.message);
+            console.warn(`Intento de carga de modelos desde ${uri} falló:`, err.message);
         }
     }
 
@@ -95,10 +116,10 @@ async function init() {
     }
 
     try {
-        estadoLogin.innerText = "Descargando base de datos de usuarios...";
+        estadoLogin.innerText = "Sincronizando usuarios registrados...";
         await cargarRostrosDesdeBD();
         
-        estadoLogin.innerText = "Iniciando cámara...";
+        estadoLogin.innerText = "Iniciando cámara web...";
         iniciarCamara();
     } catch(err) {
         console.error(err);
