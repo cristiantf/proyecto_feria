@@ -52,7 +52,7 @@ function showToast(title, message, type = 'success', duration = 4000) {
     };
 
     toast.querySelector('.toast-close').addEventListener('click', closeToast);
-    const autoTimer = setTimeout(closeToast, duration);
+    setTimeout(closeToast, duration);
 }
 
 // ==========================================
@@ -199,9 +199,9 @@ async function cargarUsuarios() {
         if (listaUsuarios.length === 0) {
             tablaUsuarios.innerHTML = `
                 <tr>
-                    <td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 30px;">
+                    <td colspan="7" style="text-align: center; color: var(--text-secondary); padding: 30px;">
                         <i class="fa-solid fa-users-slash" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
-                        No hay usuarios registrados aún. Presiona <strong>"Registrar Rostro"</strong> para crear uno.
+                        No hay usuarios registrados aún. Presiona <strong>"Registrar Usuario"</strong> para crear uno.
                     </td>
                 </tr>
             `;
@@ -223,10 +223,18 @@ async function cargarUsuarios() {
             }
             badgesHtml += '</div>';
 
+            const userPass = user.password || '1234';
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><strong>#${user.id}</strong></td>
                 <td><i class="fa-solid fa-user" style="color: var(--primary-color); margin-right: 8px;"></i> <strong>${user.nombre}</strong></td>
+                <td>
+                    <span class="password-badge" title="Contraseña / PIN de acceso">
+                        <i class="fa-solid fa-key" style="color: #94a3b8; font-size: 0.75rem;"></i>
+                        <span>${userPass}</span>
+                    </span>
+                </td>
                 <td>
                     <span class="badge ${user.tiene_acceso ? 'badge-success' : 'badge-danger'}">
                         <i class="fa-solid ${user.tiene_acceso ? 'fa-check' : 'fa-ban'}"></i>
@@ -237,7 +245,7 @@ async function cargarUsuarios() {
                 <td style="color: var(--text-secondary); font-size: 0.85rem;">${fecha}</td>
                 <td style="text-align: center;">
                     <div class="action-buttons" style="justify-content: center;">
-                        <button class="btn btn-sm btn-action-edit" onclick="abrirModalEditar(${user.id})" title="Editar usuario y Face ID">
+                        <button class="btn btn-sm btn-action-edit" onclick="abrirModalEditar(${user.id})" title="Editar usuario, contraseña y Face ID">
                             <i class="fa-solid fa-pen-to-square"></i> Editar
                         </button>
                         <button class="btn btn-sm btn-action-delete" onclick="eliminarUsuario(${user.id}, '${escapeHtml(user.nombre)}')" title="Eliminar usuario">
@@ -259,7 +267,7 @@ function escapeHtml(text) {
 }
 
 // ==========================================
-// EDITAR USUARIO Y ACTUALIZAR FACE ID
+// EDITAR USUARIO, CONTRASEÑA Y ACTUALIZAR FACE ID
 // ==========================================
 function abrirModalEditar(id) {
     const user = listaUsuarios.find(u => u.id === id);
@@ -267,6 +275,7 @@ function abrirModalEditar(id) {
 
     document.getElementById('edit-user-id').value = user.id;
     document.getElementById('edit-nombre').value = user.nombre;
+    document.getElementById('edit-password').value = user.password || '';
     document.getElementById('edit-tiene_acceso').checked = user.tiene_acceso === 1 || user.tiene_acceso === true;
 
     const perms = Array.isArray(user.permisos) ? user.permisos : ['puerta', 'luces', 'bomba'];
@@ -355,6 +364,7 @@ formEditarUsuario.addEventListener('submit', async (e) => {
 
     const id = document.getElementById('edit-user-id').value;
     const nombre = document.getElementById('edit-nombre').value.trim();
+    const password = document.getElementById('edit-password').value.trim();
     const tiene_acceso = document.getElementById('edit-tiene_acceso').checked;
 
     const permisos = [];
@@ -362,7 +372,7 @@ formEditarUsuario.addEventListener('submit', async (e) => {
     if (document.getElementById('edit-perm-luces').checked) permisos.push('luces');
     if (document.getElementById('edit-perm-bomba').checked) permisos.push('bomba');
 
-    const payload = { nombre, tiene_acceso, permisos };
+    const payload = { nombre, password, tiene_acceso, permisos };
     if (editCapturedDescriptor) {
         payload.face_descriptor = editCapturedDescriptor;
     }
@@ -404,7 +414,7 @@ formEditarUsuario.addEventListener('submit', async (e) => {
 async function eliminarUsuario(id, nombre) {
     const confirmed = await showConfirm(
         'Eliminar Usuario',
-        `¿Estás seguro de que deseas eliminar permanentemente a "${nombre}" (ID: #${id})? Se borrarán sus datos biométricos y permisos.`,
+        `¿Estás seguro de que deseas eliminar permanentemente a "${nombre}" (ID: #${id})? Se borrarán sus datos biométricos, contraseña y permisos.`,
         'Eliminar Permanentemente',
         true
     );
@@ -504,14 +514,14 @@ async function cargarLogs() {
 
         logs.forEach(log => {
             const date = new Date(log.fecha_dispositivo).toLocaleString();
-            const badgeClass = log.estado === 'EXITO' ? 'badge-success' : 'badge-danger';
+            const badgeClass = log.estado.includes('EXITO') ? 'badge-success' : 'badge-danger';
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${date}</td>
                 <td><strong>${log.nombre ? log.nombre : 'Sujeto No Reconocido'}</strong> (ID: ${log.face_id || 'N/A'})</td>
                 <td>
                     <span class="badge ${badgeClass}">
-                        <i class="fa-solid ${log.estado === 'EXITO' ? 'fa-circle-check' : 'fa-triangle-exclamation'}"></i>
+                        <i class="fa-solid ${log.estado.includes('EXITO') ? 'fa-circle-check' : 'fa-triangle-exclamation'}"></i>
                         ${log.estado}
                     </span>
                 </td>
@@ -593,7 +603,7 @@ video.addEventListener('play', () => {
     }, 500);
 });
 
-// Guardar Nuevo Usuario con Rostro y Permisos
+// Guardar Nuevo Usuario con Rostro, Contraseña y Permisos
 formUsuario.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!capturedDescriptor) {
@@ -603,6 +613,8 @@ formUsuario.addEventListener('submit', async (e) => {
 
     const nombreInput = document.getElementById('nombre');
     const nombre = nombreInput.value.trim();
+    const passwordInput = document.getElementById('nuevo-password');
+    const password = passwordInput ? passwordInput.value.trim() : '1234';
     const tiene_acceso = document.getElementById('tiene_acceso').checked;
 
     const permisos = [];
@@ -622,7 +634,7 @@ formUsuario.addEventListener('submit', async (e) => {
         const res = await fetch(`${API_URL}/usuarios`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre, face_descriptor: capturedDescriptor, tiene_acceso, permisos })
+            body: JSON.stringify({ nombre, password, face_descriptor: capturedDescriptor, tiene_acceso, permisos })
         });
 
         if (!res.ok) {
@@ -633,16 +645,16 @@ formUsuario.addEventListener('submit', async (e) => {
         modalUsuario.classList.remove('show');
         formUsuario.reset();
         capturedDescriptor = null;
-        btnGuardar.innerText = "Guardar Rostro y Usuario";
+        btnGuardar.innerText = "Guardar Usuario y Rostro";
         btnGuardar.disabled = false;
 
         await cargarUsuarios();
-        showToast('Usuario Creado', `¡"${nombre}" registrado con éxito!`, 'success');
+        showToast('Usuario Creado', `¡"${nombre}" registrado con contraseña y rostro con éxito!`, 'success');
     } catch (error) {
         console.error('Error al crear usuario:', error);
         showToast('Error al Guardar', error.message, 'error');
         btnGuardar.disabled = false;
-        btnGuardar.innerText = "Guardar Rostro y Usuario";
+        btnGuardar.innerText = "Guardar Usuario y Rostro";
     }
 });
 

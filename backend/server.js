@@ -42,11 +42,12 @@ async function inicializarBaseDatos() {
             )
         `);
 
-        // 2. Tabla Usuarios Biométricos
+        // 2. Tabla Usuarios Biométricos y Contraseña/PIN
         await conn.query(`
             CREATE TABLE IF NOT EXISTS usuarios (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 nombre VARCHAR(100) NOT NULL,
+                password VARCHAR(255) DEFAULT '1234',
                 face_descriptor LONGTEXT NOT NULL,
                 tiene_acceso BOOLEAN DEFAULT TRUE,
                 permisos VARCHAR(255) DEFAULT '["puerta","luces","bomba"]',
@@ -63,6 +64,17 @@ async function inicializarBaseDatos() {
             }
         } catch (e) {
             console.warn('Verificación de columna permisos:', e.message);
+        }
+
+        // Migración: Asegurar que la columna password exista en tabla usuarios
+        try {
+            const [passCols] = await conn.query("SHOW COLUMNS FROM usuarios LIKE 'password'");
+            if (passCols.length === 0) {
+                await conn.query(`ALTER TABLE usuarios ADD COLUMN password VARCHAR(255) DEFAULT '1234'`);
+                console.log('🔄 Columna "password" añadida a la tabla usuarios.');
+            }
+        } catch (e) {
+            console.warn('Verificación de columna password:', e.message);
         }
 
         // 3. Tabla Accesos Log
@@ -101,10 +113,10 @@ async function inicializarBaseDatos() {
         if (userRows.length === 0) {
             const mockDescriptor = Array(128).fill(0).map((_, i) => Math.sin(i * 0.1) * 0.15);
             await conn.query(`
-                INSERT INTO usuarios (id, nombre, face_descriptor, tiene_acceso, permisos)
-                VALUES (1, 'Carlos Gómez (Usuario Ejemplo)', ?, TRUE, '["puerta","luces","bomba"]')
+                INSERT INTO usuarios (id, nombre, password, face_descriptor, tiene_acceso, permisos)
+                VALUES (1, 'Carlos Gómez (Usuario Ejemplo)', '1234', ?, TRUE, '["puerta","luces","bomba"]')
             `, [JSON.stringify(mockDescriptor)]);
-            console.log('👥 Usuario de ejemplo creado: "Carlos Gómez (Usuario Ejemplo)"');
+            console.log('👥 Usuario de ejemplo creado: "Carlos Gómez (Usuario Ejemplo)" con contraseña "1234"');
 
             // Sembrar logs iniciales
             await conn.query(`
@@ -125,7 +137,7 @@ async function inicializarBaseDatos() {
 inicializarBaseDatos();
 
 // ==========================================
-// ENDPOINTS DE AUTENTICACIÓN Y ADMIN
+// ENDPOINTS DE AUTENTICACIÓN ADMINISTRATIVA
 // ==========================================
 
 // Inicio de sesión para administradores
@@ -202,12 +214,11 @@ app.put('/api/admin/password', async (req, res) => {
 // ENDPOINTS CRUD PARA USUARIOS Y ROSTROS
 // ==========================================
 
-// 1. Obtener todos los usuarios registrados (con sus permisos)
+// 1. Obtener todos los usuarios registrados (con permisos y contraseña)
 app.get('/api/usuarios', async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT id, nombre, tiene_acceso, permisos, creado_en FROM usuarios ORDER BY id DESC');
+        const [rows] = await pool.query('SELECT id, nombre, password, tiene_acceso, permisos, creado_en FROM usuarios ORDER BY id DESC');
         
-        // Parsear permisos si vienen como string JSON
         const usuarios = rows.map(u => {
             let permisosParsed = ['puerta', 'luces', 'bomba'];
             if (u.permisos) {
@@ -219,6 +230,7 @@ app.get('/api/usuarios', async (req, res) => {
             }
             return {
                 ...u,
+                password: u.password || '1234',
                 permisos: permisosParsed
             };
         });
@@ -251,21 +263,22 @@ app.get('/api/rostros', async (req, res) => {
     }
 });
 
-// 3. Registrar nuevo usuario con su rostro y permisos de dispositivos
+// 3. Registrar nuevo usuario con su rostro, permisos y contraseña/PIN
 app.post('/api/usuarios', async (req, res) => {
-    const { nombre, face_descriptor, tiene_acceso, permisos } = req.body;
+    const { nombre, password, face_descriptor, tiene_acceso, permisos } = req.body;
     if (!nombre || !face_descriptor) {
         return res.status(400).json({ error: 'Nombre y descriptor facial son obligatorios.' });
     }
 
     const permisosStr = JSON.stringify(Array.isArray(permisos) && permisos.length > 0 ? permisos : ['puerta', 'luces', 'bomba']);
+    const userPass = (password && password.trim().length > 0) ? password.trim() : '1234';
 
     try {
         const [result] = await pool.query(
-            'INSERT INTO usuarios (nombre, face_descriptor, tiene_acceso, permisos) VALUES (?, ?, ?, ?)',
-            [nombre.trim(), JSON.stringify(face_descriptor), tiene_acceso !== false, permisosStr]
+            'INSERT INTO usuarios (nombre, password, face_descriptor, tiene_acceso, permisos) VALUES (?, ?, ?, ?, ?)',
+            [nombre.trim(), userPass, JSON.stringify(face_descriptor), tiene_acceso !== false, permisosStr]
         );
-        console.log(`👤 Usuario registrado: [ID: ${result.insertId}] ${nombre} | Permisos: ${permisosStr}`);
+        console.log(`👤 Usuario registrado: [ID: ${result.insertId}] ${nombre} | Pass: ${userPass} | Permisos: ${permisosStr}`);
         res.json({ id: result.insertId, nombre, tiene_acceso, permisos: JSON.parse(permisosStr) });
     } catch (error) {
         console.error('❌ Error al registrar usuario:', error.message);
@@ -273,10 +286,10 @@ app.post('/api/usuarios', async (req, res) => {
     }
 });
 
-// 4. Editar usuario existente (Nombre, Acceso, Permisos de Dispositivos y Face ID opcional)
+// 4. Editar usuario existente (Nombre, Contraseña, Acceso, Permisos y Face ID)
 app.put('/api/usuarios/:id', async (req, res) => {
     const { id } = req.params;
-    const { nombre, tiene_acceso, permisos, face_descriptor } = req.body;
+    const { nombre, password, tiene_acceso, permisos, face_descriptor } = req.body;
 
     if (!nombre) {
         return res.status(400).json({ error: 'El nombre es obligatorio.' });
@@ -286,15 +299,32 @@ app.put('/api/usuarios/:id', async (req, res) => {
 
     try {
         let result;
-        if (face_descriptor && Array.isArray(face_descriptor) && face_descriptor.length > 0) {
-            // Actualización con nuevo Face ID
+        const hasNewPass = password && password.trim().length > 0;
+        const hasNewFace = face_descriptor && Array.isArray(face_descriptor) && face_descriptor.length > 0;
+
+        if (hasNewFace && hasNewPass) {
+            // Actualizar Todo (Nombre, Password, Acceso, Permisos y Face ID)
+            [result] = await pool.query(
+                'UPDATE usuarios SET nombre = ?, password = ?, tiene_acceso = ?, permisos = ?, face_descriptor = ? WHERE id = ?',
+                [nombre.trim(), password.trim(), tiene_acceso === true || tiene_acceso === 1, permisosStr, JSON.stringify(face_descriptor), id]
+            );
+            console.log(`📸 Contraseña y Face ID actualizados para usuario ID ${id} (${nombre})`);
+        } else if (hasNewFace) {
+            // Actualizar con Face ID sin cambiar password
             [result] = await pool.query(
                 'UPDATE usuarios SET nombre = ?, tiene_acceso = ?, permisos = ?, face_descriptor = ? WHERE id = ?',
                 [nombre.trim(), tiene_acceso === true || tiene_acceso === 1, permisosStr, JSON.stringify(face_descriptor), id]
             );
-            console.log(`📸 Face ID y datos actualizados para usuario ID ${id} (${nombre})`);
+            console.log(`📸 Face ID actualizado para usuario ID ${id} (${nombre})`);
+        } else if (hasNewPass) {
+            // Actualizar con nueva password sin cambiar Face ID
+            [result] = await pool.query(
+                'UPDATE usuarios SET nombre = ?, password = ?, tiene_acceso = ?, permisos = ? WHERE id = ?',
+                [nombre.trim(), password.trim(), tiene_acceso === true || tiene_acceso === 1, permisosStr, id]
+            );
+            console.log(`🔑 Contraseña actualizada para usuario ID ${id} (${nombre}) -> ${password}`);
         } else {
-            // Actualización de datos sin cambiar el rostro existente
+            // Actualizar datos básicos
             [result] = await pool.query(
                 'UPDATE usuarios SET nombre = ?, tiene_acceso = ?, permisos = ? WHERE id = ?',
                 [nombre.trim(), tiene_acceso === true || tiene_acceso === 1, permisosStr, id]
@@ -328,6 +358,51 @@ app.delete('/api/usuarios/:id', async (req, res) => {
         res.json({ success: true, message: `Usuario con ID ${id} eliminado correctamente.` });
     } catch (error) {
         console.error('❌ Error al eliminar usuario:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 6. Inicio de sesión manual para usuarios mediante PIN / Contraseña
+app.post('/api/user/login', async (req, res) => {
+    const { userId, password } = req.body;
+    if (!userId || !password) {
+        return res.status(400).json({ error: 'Selecciona un usuario e ingresa la contraseña/PIN.' });
+    }
+
+    try {
+        const [rows] = await pool.query('SELECT id, nombre, password, tiene_acceso, permisos FROM usuarios WHERE id = ?', [userId]);
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado.' });
+        }
+
+        const user = rows[0];
+        if (!user.tiene_acceso) {
+            return res.status(403).json({ error: 'Tu acceso se encuentra suspendido. Consulta al administrador.' });
+        }
+
+        const passExpected = user.password || '1234';
+        if (passExpected !== password.trim()) {
+            return res.status(401).json({ error: 'Contraseña o PIN incorrecto.' });
+        }
+
+        let permisosParsed = ['puerta', 'luces', 'bomba'];
+        try {
+            permisosParsed = typeof user.permisos === 'string' ? JSON.parse(user.permisos) : user.permisos;
+        } catch (e) {}
+
+        await pool.query('INSERT INTO accesos_log (face_id, estado, fecha_dispositivo) VALUES (?, ?, NOW())', [user.id.toString(), 'EXITO (PIN/PASSWORD)']);
+        console.log(`🔑 Login manual con contraseña para usuario [ID: ${user.id}] ${user.nombre}`);
+
+        res.json({
+            success: true,
+            user: {
+                id: user.id,
+                nombre: user.nombre,
+                permisos: permisosParsed
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error en login manual de usuario:', error.message);
         res.status(500).json({ error: error.message });
     }
 });

@@ -9,8 +9,19 @@ const bienvenidaUsuario = document.getElementById('bienvenida-usuario');
 const permisosListaDisplay = document.getElementById('permisos-lista-display');
 const toastContainer = document.getElementById('toast-container');
 
+// Elementos Login por PIN
+const btnOpenPinLogin = document.getElementById('btn-open-pin-login');
+const modalPinLogin = document.getElementById('modal-pin-login');
+const btnClosePinModal = document.getElementById('btn-close-pin-modal');
+const btnCancelPin = document.getElementById('btn-cancel-pin');
+const formPinLogin = document.getElementById('form-pin-login');
+const selectUserPin = document.getElementById('select-user-pin');
+const inputUserPin = document.getElementById('input-user-pin');
+const btnSubmitPin = document.getElementById('btn-submit-pin');
+
 let labeledFaceDescriptors = [];
 let userMetadataMap = {};
+let listaUsuariosCache = [];
 let faceMatcher = null;
 let scanning = false;
 let currentUser = null;
@@ -76,13 +87,12 @@ async function init() {
     }
 
     if (!modelsLoaded) {
-        estadoLogin.innerText = "Error cargando modelos. Asegúrate de ejecutar bajo un servidor web local.";
-        showToast('Error de Modelos', 'No se pudieron cargar los modelos de visión artificial.', 'error');
-        return;
+        estadoLogin.innerText = "Error cargando modelos. Puedes usar el ingreso por contraseña o botón demo.";
+        showToast('Modelos IA', 'No se pudieron cargar los modelos de visión.', 'warning');
     }
 
     try {
-        estadoLogin.innerText = "Descargando base de datos de rostros y permisos...";
+        estadoLogin.innerText = "Descargando base de datos de usuarios...";
         await cargarRostrosDesdeBD();
         
         estadoLogin.innerText = "Iniciando cámara...";
@@ -90,23 +100,37 @@ async function init() {
     } catch(err) {
         console.error(err);
         estadoLogin.innerText = "Error al conectar con la base de datos o iniciar cámara.";
-        showToast('Conexión', 'Error al sincronizar rostros con el servidor.', 'error');
+        showToast('Conexión', 'Error al sincronizar usuarios con el servidor.', 'error');
     }
 }
 
 async function cargarRostrosDesdeBD() {
     try {
-        const res = await fetch(`${API_URL}/rostros`);
-        const usuarios = await res.json();
+        const res = await fetch(`${API_URL}/usuarios`);
+        listaUsuariosCache = await res.json();
         
-        if(usuarios.length === 0) {
+        // Llenar select del modal de PIN
+        if (selectUserPin) {
+            selectUserPin.innerHTML = '<option value="">-- Elige tu usuario --</option>';
+            listaUsuariosCache.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.id;
+                opt.innerText = `#${u.id} - ${u.nombre}`;
+                selectUserPin.appendChild(opt);
+            });
+        }
+
+        if(listaUsuariosCache.length === 0) {
             estadoLogin.innerText = "No hay usuarios registrados. Regístrate en el Panel Admin.";
             return;
         }
 
         userMetadataMap = {};
 
-        labeledFaceDescriptors = usuarios.map(u => {
+        const resRostros = await fetch(`${API_URL}/rostros`);
+        const usuariosRostros = await resRostros.json();
+
+        labeledFaceDescriptors = usuariosRostros.map(u => {
             const descriptorArray = typeof u.face_descriptor === 'string' ? JSON.parse(u.face_descriptor) : u.face_descriptor;
             const descriptor = new Float32Array(descriptorArray);
             
@@ -136,8 +160,8 @@ function iniciarCamara() {
         scanning = true;
     })
     .catch(err => {
-        estadoLogin.innerText = "Cámara no detectada o permisos denegados. Puedes usar el botón de prueba demo.";
-        showToast('Cámara', 'No se detectó cámara web. Puedes probar con el botón de demostración.', 'warning');
+        estadoLogin.innerText = "Cámara no detectada o permisos denegados. Puedes usar el ingreso por contraseña o botón demo.";
+        showToast('Cámara', 'No se detectó cámara web. Puedes ingresar con contraseña.', 'info');
     });
 }
 
@@ -197,12 +221,64 @@ async function registrarAcceso(id, estado) {
     }
 }
 
+// ==========================================
+// INGRESO MANUAL POR CONTRASEÑA / PIN
+// ==========================================
+if (btnOpenPinLogin) {
+    btnOpenPinLogin.addEventListener('click', () => {
+        formPinLogin.reset();
+        modalPinLogin.classList.add('show');
+    });
+}
+
+const cerrarModalPin = () => {
+    modalPinLogin.classList.remove('show');
+};
+
+if (btnClosePinModal) btnClosePinModal.addEventListener('click', cerrarModalPin);
+if (btnCancelPin) btnCancelPin.addEventListener('click', cerrarModalPin);
+
+if (formPinLogin) {
+    formPinLogin.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const userId = selectUserPin.value;
+        const password = inputUserPin.value.trim();
+
+        if (!userId) {
+            showToast('Validación', 'Por favor selecciona un usuario.', 'warning');
+            return;
+        }
+
+        btnSubmitPin.disabled = true;
+        btnSubmitPin.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...';
+
+        try {
+            const res = await fetch(`${API_URL}/user/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, password })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Error al autenticar');
+
+            cerrarModalPin();
+            currentUser = data.user;
+            showToast('Acceso Concedido', `Bienvenido/a, ${currentUser.nombre}`, 'success');
+            setTimeout(mostrarPanelControl, 600);
+        } catch (err) {
+            showToast('Acceso Denegado', err.message, 'error');
+        } finally {
+            btnSubmitPin.disabled = false;
+            btnSubmitPin.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Entrar';
+        }
+    });
+}
+
 // Simular acceso con usuario de ejemplo (para ferias/demos rápidas)
 async function simularAccesoDemo() {
     try {
-        const res = await fetch(`${API_URL}/usuarios`);
-        const usuarios = await res.json();
-        const demoUser = usuarios.find(u => u.id === 1) || usuarios[0] || {
+        const demoUser = listaUsuariosCache.find(u => u.id === 1) || listaUsuariosCache[0] || {
             id: 1,
             nombre: 'Carlos Gómez (Usuario Ejemplo)',
             permisos: ['puerta', 'luces', 'bomba']

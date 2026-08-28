@@ -15,10 +15,11 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/admin/login` | Autenticación de administradores | Pública / Credenciales |
 | `PUT` | `/api/admin/password` | Cambiar contraseña del administrador | Pública / Validación actual |
-| `GET` | `/api/usuarios` | Listar usuarios registrados con sus permisos de dispositivos | Pública |
+| `POST` | `/api/user/login` | Autenticación manual de usuarios mediante PIN / Contraseña | Pública / Credenciales |
+| `GET` | `/api/usuarios` | Listar usuarios registrados con sus contraseñas y permisos | Pública |
 | `GET` | `/api/rostros` | Descargar vectores biométricos y permisos para matching | Pública |
-| `POST` | `/api/usuarios` | Registrar un nuevo usuario con vector facial y permisos | Pública |
-| `PUT` | `/api/usuarios/:id` | Actualizar nombre, permisos y opcionalmente Face ID | Pública |
+| `POST` | `/api/usuarios` | Registrar un nuevo usuario con contraseña, vector facial y permisos | Pública |
+| `PUT` | `/api/usuarios/:id` | Actualizar nombre, contraseña, permisos y/o Face ID | Pública |
 | `DELETE` | `/api/usuarios/:id` | Eliminar usuario de la base de datos | Pública |
 | `POST` | `/api/recibir_log` | Registrar eventos de auditoría de acceso | Pública |
 | `GET` | `/api/logs` | Consultar los últimos 50 registros de acceso | Pública |
@@ -28,6 +29,29 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 ---
 
 ### 1.2. Detalle de Endpoints y Esquemas JSON
+
+#### `POST /api/user/login`
+- **Descripción:** Autentica a un usuario mediante su identificador y su contraseña / PIN personal.
+- **Request Body:**
+```json
+{
+  "userId": 1,
+  "password": "1234"
+}
+```
+- **Respuesta Exitosa (200 OK):**
+```json
+{
+  "success": true,
+  "user": {
+    "id": 1,
+    "nombre": "Carlos Gómez (Usuario Ejemplo)",
+    "permisos": ["puerta", "luces", "bomba"]
+  }
+}
+```
+
+---
 
 #### `POST /api/admin/login`
 - **Descripción:** Valida las credenciales del administrador para otorgar acceso al panel administrativo.
@@ -75,13 +99,14 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 ---
 
 #### `GET /api/usuarios`
-- **Descripción:** Retorna los datos de todos los usuarios registrados incluyendo sus permisos de dispositivos.
+- **Descripción:** Retorna los datos de todos los usuarios registrados incluyendo su contraseña y permisos de dispositivos.
 - **Respuesta Exitosa (200 OK):**
 ```json
 [
   {
     "id": 1,
     "nombre": "Carlos Gómez (Usuario Ejemplo)",
+    "password": "1234",
     "tiene_acceso": 1,
     "permisos": ["puerta", "luces", "bomba"],
     "creado_en": "2026-08-28T14:59:45.000Z"
@@ -92,12 +117,13 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 ---
 
 #### `POST /api/usuarios`
-- **Descripción:** Registra un nuevo usuario en la base de datos junto con su descriptor biométrico y permisos de dispositivos.
+- **Descripción:** Registra un nuevo usuario en la base de datos junto con su contraseña, descriptor biométrico y permisos de dispositivos.
 - **Headers Requeridos:** `Content-Type: application/json`
 - **Request Body:**
 ```json
 {
   "nombre": "Juan Pérez",
+  "password": "4321",
   "face_descriptor": [-0.145892, 0.098231, 0.124589, "...128 flotantes..."],
   "tiene_acceso": true,
   "permisos": ["puerta", "luces"]
@@ -116,11 +142,12 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 ---
 
 #### `PUT /api/usuarios/:id`
-- **Descripción:** Actualiza los datos, permisos y opcionalmente el Face ID de un usuario existente.
+- **Descripción:** Actualiza los datos, contraseña, permisos y/o el Face ID de un usuario existente.
 - **Request Body:**
 ```json
 {
   "nombre": "Juan Pérez Actualizado",
+  "password": "miNuevoPassword",
   "tiene_acceso": true,
   "permisos": ["luces", "bomba"],
   "face_descriptor": [-0.1245, "...128 flotantes... (opcional)"]
@@ -198,12 +225,13 @@ Gestiona las credenciales del personal administrativo para el acceso al panel.
 | `creado_en` | `TIMESTAMP` | Sí | - | `CURRENT_TIMESTAMP` | Fecha de alta |
 
 ### 2.2. Tabla: `usuarios`
-Almacena las credenciales biométricas y permisos de cada persona registrada.
+Almacena las credenciales biométricas, contraseñas y permisos de cada persona registrada.
 
 | Campo | Tipo | Nulo | Clave | Default | Descripción |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `id` | `INT` | No | PK (AI) | Auto | Identificador único del usuario |
 | `nombre` | `VARCHAR(100)` | No | - | - | Nombre completo o alias del usuario |
+| `password` | `VARCHAR(255)` | Sí | - | `'1234'` | Contraseña / PIN personal de acceso |
 | `face_descriptor` | `LONGTEXT` | No | - | - | Vector de 128 dimensiones serializado en formato JSON |
 | `tiene_acceso` | `BOOLEAN` | Sí | - | `TRUE` | Bandera de autorización de acceso (1: Activo, 0: Bloqueado) |
 | `permisos` | `VARCHAR(255)` | Sí | - | `["puerta","luces","bomba"]` | Array JSON con dispositivos autorizados |
@@ -216,7 +244,7 @@ Historial de eventos de autenticación biométrica para auditoría y trazabilida
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `id` | `INT` | No | PK (AI) | Auto | Identificador único del log |
 | `face_id` | `VARCHAR(50)` | Sí | - | NULL | ID del usuario o indicador de sujeto desconocido |
-| `estado` | `VARCHAR(20)` | Sí | - | NULL | Resultado del acceso: `EXITO` o `DENEGADO` |
+| `estado` | `VARCHAR(20)` | Sí | - | NULL | Resultado del acceso: `EXITO`, `DENEGADO`, `EXITO (PIN/PASSWORD)` |
 | `fecha_dispositivo`| `TIMESTAMP` | Sí | - | `CURRENT_TIMESTAMP` | Marca temporal del evento |
 | `creado_en` | `TIMESTAMP` | Sí | - | `CURRENT_TIMESTAMP` | Marca temporal de inserción |
 

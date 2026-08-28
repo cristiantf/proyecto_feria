@@ -6,14 +6,14 @@
 [![ESP8266](https://img.shields.io/badge/Hardware-ESP8266%20NodeMCU-red.svg)](https://www.espressif.com/)
 [![face-api.js](https://img.shields.io/badge/AI-Face--API.js%20(TensorFlow.js)-orange.svg)](https://justadudewhohacks.github.io/face-api.js/docs/index.html)
 
-Sistema integral de seguridad y domótica desarrollado para proyectos de feria tecnológica. Combina **Autenticación Administrativa con Cambio de Contraseña**, **Gestión de Permisos por Dispositivo (Puerta, Luces, Bomba)**, **Actualización de Face ID en Caliente**, **Sistema de Notificaciones Toast Modernas**, **Inferencia de Visión Artificial en el Navegador con face-api.js**, un **Backend REST con Node.js & MySQL**, y un **Microcontrolador ESP8266** para la activación física de actuadores mediante módulo de relés.
+Sistema integral de seguridad y domótica desarrollado para proyectos de feria tecnológica. Combina **Autenticación Administrativa**, **Gestión de Contraseñas/PIN de Usuarios**, **Control de Permisos por Dispositivo (Puerta, Luces, Bomba)**, **Actualización de Face ID en Caliente**, **Doble Factor de Acceso (Biométrico y Contraseña)**, **Sistema de Notificaciones Toast Modernas**, **Inferencia de Visión Artificial en el Navegador con face-api.js**, un **Backend REST con Node.js & MySQL**, y un **Microcontrolador ESP8266** para la activación física de actuadores mediante módulo de relés.
 
 ---
 
 ## 📑 Tabla de Contenidos
 1. [Descripción General](#-descripción-general)
 2. [Cuentas y Credenciales de Ejemplo](#-cuentas-y-credenciales-de-ejemplo)
-3. [Novedades y Mejoras de UX](#-novedades-y-mejoras-de-ux)
+3. [Novedades y Gestión de Contraseñas](#-novedades-y-gestión-de-contraseñas)
 4. [Control de Acceso y Permisos por Dispositivo](#-control-de-acceso-y-permisos-por-dispositivo)
 5. [Arquitectura del Sistema](#-arquitectura-del-sistema)
 6. [Estructura del Repositorio](#-estructura-del-repositorio)
@@ -27,18 +27,19 @@ Sistema integral de seguridad y domótica desarrollado para proyectos de feria t
 
 El proyecto permite gestionar de forma centralizada la seguridad y automatización de una instalación:
 1. **Inicio de Sesión y Seguridad del Administrador (`admin_login.html` & `index.html`):** Protege el panel de administración con credenciales, permitiendo gestionar el registro, edición, eliminación de usuarios, cambio de contraseña del admin y consulta de auditoría.
-2. **Gestión CRUD y Actualización de Face ID:** Permite registrar nuevos usuarios con captura facial, **editar nombres y permisos** y **recapturar/actualizar el rostro biométrico (Face ID)** de un usuario existente sin tener que eliminarlo.
-3. **Autenticación Facial en Vivo (`login.html`):** En el portal de acceso, la cámara escanea en tiempo real a la persona frente al dispositivo, calcula la distancia euclidiana frente a los descriptores registrados y, si el usuario tiene acceso habilitado, le concede el ingreso.
+2. **Gestión de Usuarios, Contraseñas y Face ID:** Permite registrar usuarios con contraseña y captura facial, **editar sus contraseñas / PIN** en cualquier momento, gestionar sus permisos y **recapturar/actualizar su rostro biométrico (Face ID)** en caliente.
+3. **Autenticación Dual (Facial o por Contraseña/PIN en `login.html`):** Los usuarios pueden ingresar tanto por reconocimiento facial en tiempo real como introduciendo su contraseña/PIN personal como método alternativo o de contingencia.
 4. **Control de Actuadores Restringido por Permisos:** Cada usuario cuenta con acceso selectivo a uno o varios dispositivos (🚪 Puerta, 💡 Luces, 💧 Bomba). Los controles no autorizados se bloquean automáticamente en la interfaz y en el backend.
 
 ---
 
-## 💎 Novedades y Mejoras de UX
+## 💎 Novedades y Gestión de Contraseñas
 
-- 🔔 **Sistema de Mensajes Emergentes (Toast Notifications):** Reemplazo de los alertas nativos (`alert()`) por notificaciones flotantes animadas con Glassmorphism, barra de progreso y código de colores según el estado (`éxito`, `error`, `advertencia`, `información`).
-- 🛑 **Diálogos de Confirmación Personalizados:** Modales modernos para confirmar acciones críticas (como eliminación de usuarios o cierre de sesión) sin bloquear el navegador.
-- 🔑 **Cambio de Contraseña de Administrador:** Modal interactivo para actualizar la clave de acceso administrativo con validación de contraseña actual y confirmación de nueva clave.
-- 📸 **Actualización en Caliente de Face ID:** Cámara integrada en el modal de edición para escanear y actualizar el descriptor biométrico del usuario.
+- 🔑 **Gestión Completa de Contraseñas de Usuarios:** Los administradores pueden asignar contraseñas o PINs individuales al crear o editar cualquier usuario desde el panel.
+- 🔢 **Acceso Alternativo por Contraseña/PIN:** Modal en `login.html` que permite a los usuarios autenticarse ingresando su PIN/contraseña si no disponen de cámara web.
+- 🔒 **Cambio de Contraseña de Administrador:** Modal para actualizar la clave de acceso del administrador con validación de clave actual.
+- 🔔 **Sistema de Mensajes Emergentes (Toast Notifications):** Reemplazo total de alertas nativas por toasts animados y modales de confirmación con Glassmorphism.
+- 📸 **Actualización en Caliente de Face ID:** Cámara integrada en el modal de edición para escanear y actualizar el descriptor biométrico sin recrear el usuario.
 
 ---
 
@@ -48,8 +49,8 @@ La base de datos se inicializa automáticamente con los siguientes accesos:
 
 | Rol | Interfaz | Identificador / Usuario | Contraseña / Método | Permisos Asignados |
 | :--- | :--- | :--- | :--- | :--- |
-| **Administrador** | [admin_login.html](frontend/admin_login.html) | `admin` | `admin123` | Control total del sistema, gestión de usuarios y cambio de clave |
-| **Usuario de Ejemplo** | [login.html](frontend/login.html) | `Carlos Gómez (Usuario Ejemplo)` (ID: 1) | Reconocimiento Facial / Botón Demo | 🚪 Puerta, 💡 Luces, 💧 Bomba |
+| **Administrador** | [admin_login.html](frontend/admin_login.html) | `admin` | `admin123` | Control total del sistema, gestión de usuarios y contraseñas |
+| **Usuario de Ejemplo** | [login.html](frontend/login.html) | `Carlos Gómez (Usuario Ejemplo)` (ID: 1) | `1234` / Reconocimiento Facial / Demo | 🚪 Puerta, 💡 Luces, 💧 Bomba |
 
 ---
 
@@ -73,8 +74,8 @@ Si un usuario no tiene asignado un dispositivo:
   ┌──────────────────────────────────────────────────────────┐
   │                   NAVEGADOR WEB / CLIENTE               │
   │  - Login Admin & Cambio Clave (admin_login.html)         │
-  │  - Panel Admin CRUD, Face ID & Permisos (index.html)     │
-  │  - Portal de Acceso Facial (login.html, login.js)        │
+  │  - Panel Admin CRUD, Password, Face ID & Permisos        │
+  │  - Portal de Acceso Facial & Acceso PIN (login.html)     │
   │  - Sistema de Toasts y Modales de Confirmación           │
   │  - Inferencia IA: SSD MobileNet + Face-API (128D Vector) │
   └──────────────────────────┬───────────────────────────────┘
@@ -83,13 +84,13 @@ Si un usuario no tiene asignado un dispositivo:
   ┌──────────────────────────────────────────────────────────┐
   │                 BACKEND (Node.js + Express)              │
   │  - Servidor API en Puerto 3000                           │
-  │  - Auth Admin, Cambio Clave, CRUD Usuarios & Face ID     │
+  │  - Auth Admin, User Passwords, CRUD Usuarios & Face ID   │
   └──────────────────────────┬───────────────────────────────┘
                              │ mysql2 / Pool de Conexiones
                              ▼
   ┌──────────────────────────────────────────────────────────┐
   │                 BASE DE DATOS (MySQL / MariaDB)          │
-  │  - Tablas: administradores, usuarios (permisos), logs    │
+  │  - Tablas: administradores, usuarios (password), logs    │
   └──────────────────────────┬───────────────────────────────┘
                              │ HTTP GET Polling (/api/check_comando)
                              ▼
@@ -110,16 +111,16 @@ proyecto_feria/
 ├── backend/
 │   ├── download_models.js       # Script de descarga de pesos de face-api
 │   ├── package.json             # Dependencias del servidor (express, cors, mysql2)
-│   └── server.js                # Servidor API REST, CRUD, auth, password & Face ID
+│   └── server.js                # Servidor API REST, CRUD, passwords, Face ID & auth
 ├── database.sql                 # Script DDL con administradores, usuarios y permisos
 ├── esp8266/
 │   └── puerta_biometrica.ino    # Firmware Arduino C++ para NodeMCU ESP8266
 ├── frontend/
 │   ├── admin_login.html         # Pantalla de inicio de sesión para el administrador
-│   ├── app.js                   # Lógica del panel (CRUD, Face ID, Toasts, Confirm)
+│   ├── app.js                   # Lógica del panel (CRUD, Passwords, Face ID, Toasts)
 │   ├── index.html               # Vista del panel de administración (protegido)
-│   ├── login.html               # Vista de login con escáner biométrico y panel domótico
-│   ├── login.js                 # Lógica de comparación facial, permisos y comandos
+│   ├── login.html               # Vista de login facial / login manual por PIN
+│   ├── login.js                 # Lógica de comparación facial, PIN y comandos
 │   ├── models/                  # Pesos binarios locales para face-api.js
 │   └── style.css                # Estilos modernos, Glassmorphism, Toasts y Modales
 ├── docs/
@@ -146,8 +147,8 @@ npm start
 
 ### 3. Acceso a las Interfaces Web
 - **Login Administrador:** [http://localhost:3000/admin_login.html](http://localhost:3000/admin_login.html) (`admin` / `admin123`)
-- **Panel Administrativo (CRUD, Face ID y Permisos):** [http://localhost:3000/index.html](http://localhost:3000/index.html)
-- **Portal de Acceso Facial y Domótica:** [http://localhost:3000/login.html](http://localhost:3000/login.html)
+- **Panel Administrativo (CRUD, Contraseñas, Face ID y Permisos):** [http://localhost:3000/index.html](http://localhost:3000/index.html)
+- **Portal de Acceso Facial y PIN:** [http://localhost:3000/login.html](http://localhost:3000/login.html)
 
 ---
 
@@ -157,10 +158,11 @@ npm start
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/admin/login` | Iniciar sesión administrativa | `{ usuario, password }` -> Retorna token y datos admin |
 | `PUT` | `/api/admin/password` | Cambiar contraseña del administrador | `{ adminId, passwordActual, nuevaPassword }` |
-| `GET` | `/api/usuarios` | Lista usuarios registrados con sus permisos | Retorna `[{ id, nombre, tiene_acceso, permisos, creado_en }]` |
+| `POST` | `/api/user/login` | Iniciar sesión de usuario con PIN/Contraseña | `{ userId, password }` -> Retorna datos y permisos |
+| `GET` | `/api/usuarios` | Lista usuarios registrados con sus contraseñas y permisos | Retorna `[{ id, nombre, password, tiene_acceso, permisos, creado_en }]` |
 | `GET` | `/api/rostros` | Obtiene descriptores faciales y permisos para matching | Retorna `[{ id, nombre, face_descriptor, permisos }]` |
-| `POST` | `/api/usuarios` | Registra un nuevo usuario con rostro y permisos | `{ nombre, face_descriptor, tiene_acceso, permisos }` |
-| `PUT` | `/api/usuarios/:id` | Actualiza nombre, permisos y opcionalmente Face ID | `{ nombre, tiene_acceso, permisos, face_descriptor? }` |
+| `POST` | `/api/usuarios` | Registra nuevo usuario con contraseña, rostro y permisos | `{ nombre, password?, face_descriptor, tiene_acceso, permisos }` |
+| `PUT` | `/api/usuarios/:id` | Actualiza nombre, contraseña, permisos y/o Face ID | `{ nombre, password?, tiene_acceso, permisos, face_descriptor? }` |
 | `DELETE` | `/api/usuarios/:id` | Elimina permanentemente un usuario | Retorna `{ success: true }` |
 | `POST` | `/api/recibir_log` | Registra un evento de acceso en el log | `{ id, estado }` |
 | `GET` | `/api/logs` | Devuelve el historial de accesos recientes | Retorna `[{ id, nombre, face_id, estado, fecha }]` |

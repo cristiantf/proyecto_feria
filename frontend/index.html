@@ -27,6 +27,18 @@
             color: var(--primary-color);
             font-weight: 500;
         }
+        .password-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+        }
     </style>
 </head>
 <body>
@@ -45,7 +57,7 @@
             </ul>
             <div class="sidebar-footer">
                 <button id="btn-sidebar-password" class="btn btn-secondary w-100" style="font-size: 0.85rem;">
-                    <i class="fa-solid fa-key"></i> Cambiar Contraseña
+                    <i class="fa-solid fa-key"></i> Clave Administrador
                 </button>
                 <a href="login.html" class="btn btn-secondary w-100" style="text-decoration:none; text-align:center; font-size: 0.85rem;">
                     <i class="fa-solid fa-camera"></i> Portal Biométrico
@@ -66,7 +78,7 @@
                         <span id="admin-nombre-display">Administrador</span>
                     </div>
                     <button id="btn-open-password" class="btn btn-secondary" title="Cambiar Contraseña">
-                        <i class="fa-solid fa-key"></i> Contraseña
+                        <i class="fa-solid fa-key"></i> Contraseña Admin
                     </button>
                     <button id="btn-logout" class="btn btn-secondary" title="Cerrar sesión">
                         <i class="fa-solid fa-right-from-bracket"></i> Salir
@@ -80,11 +92,11 @@
                     <div>
                         <h2>Usuarios Registrados</h2>
                         <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 4px;">
-                            Gestiona usuarios, reconocimiento facial y permisos granulares de dispositivos IoT
+                            Gestiona usuarios, contraseñas, reconocimiento facial y permisos granulares de dispositivos IoT
                         </p>
                     </div>
                     <button id="btn-nuevo-usuario" class="btn btn-primary">
-                        <i class="fa-solid fa-plus"></i> Registrar Rostro
+                        <i class="fa-solid fa-plus"></i> Registrar Usuario
                     </button>
                 </div>
                 
@@ -94,6 +106,7 @@
                             <tr>
                                 <th>ID DB</th>
                                 <th>Nombre</th>
+                                <th>Contraseña / PIN</th>
                                 <th>Acceso Global</th>
                                 <th>Dispositivos Autorizados</th>
                                 <th>Fecha de Registro</th>
@@ -113,7 +126,7 @@
                     <div>
                         <h2>Registro de Accesos Recientes</h2>
                         <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 4px;">
-                            Auditoría en tiempo real de intentos de autenticación
+                            Auditoría en tiempo real de intentos de autenticación (Face ID y PIN)
                         </p>
                     </div>
                     <button id="btn-refresh-logs" class="btn btn-secondary"><i class="fa-solid fa-rotate-right"></i> Actualizar</button>
@@ -137,11 +150,11 @@
         </main>
     </div>
 
-    <!-- Modal Nuevo Usuario con Reconocimiento Facial -->
+    <!-- Modal Nuevo Usuario con Reconocimiento Facial y Contraseña -->
     <div id="modal-usuario" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
-                <h3><i class="fa-solid fa-user-plus" style="color: var(--primary-color);"></i> Registrar Nuevo Rostro</h3>
+                <h3><i class="fa-solid fa-user-plus" style="color: var(--primary-color);"></i> Registrar Nuevo Usuario</h3>
                 <span class="close-modal">&times;</span>
             </div>
             <div class="modal-body">
@@ -150,9 +163,14 @@
                         <label for="nombre">Nombre Completo</label>
                         <input type="text" id="nombre" required placeholder="Ej: Juan Pérez">
                     </div>
+
+                    <div class="form-group">
+                        <label for="nuevo-password"><i class="fa-solid fa-key"></i> Contraseña / PIN de Acceso (Opcional)</label>
+                        <input type="text" id="nuevo-password" placeholder="Por defecto: 1234">
+                    </div>
                     
                     <div class="form-group" style="text-align: center;">
-                        <label>Captura Facial (Mira fijamente a la cámara)</label>
+                        <label>Captura Facial Biometría (Mira fijamente a la cámara)</label>
                         <div style="position: relative; display: inline-block;">
                             <video id="video-registro" width="400" height="300" autoplay muted style="border-radius: 8px; border: 2px solid var(--border-color);"></video>
                             <canvas id="canvas-registro" style="position: absolute; top: 0; left: 0;"></canvas>
@@ -192,18 +210,18 @@
                         <label for="tiene_acceso">Habilitar acceso general del usuario</label>
                     </div>
                     <button type="submit" id="btn-guardar" class="btn btn-primary w-100" style="padding: 12px; font-size: 1rem;" disabled>
-                        <i class="fa-solid fa-floppy-disk"></i> Guardar Rostro y Usuario
+                        <i class="fa-solid fa-floppy-disk"></i> Guardar Usuario y Rostro
                     </button>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Modal Editar Usuario, Permisos y Actualizar Face ID -->
+    <!-- Modal Editar Usuario, Contraseña, Permisos y Actualizar Face ID -->
     <div id="modal-editar-usuario" class="modal">
         <div class="modal-content" style="max-width: 540px;">
             <div class="modal-header">
-                <h3><i class="fa-solid fa-user-pen" style="color: var(--primary-color);"></i> Editar Usuario y Face ID</h3>
+                <h3><i class="fa-solid fa-user-pen" style="color: var(--primary-color);"></i> Editar Usuario y Contraseña</h3>
                 <span class="close-modal">&times;</span>
             </div>
             <div class="modal-body">
@@ -213,6 +231,11 @@
                     <div class="form-group">
                         <label for="edit-nombre">Nombre Completo</label>
                         <input type="text" id="edit-nombre" required placeholder="Nombre del usuario">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-password"><i class="fa-solid fa-key"></i> Cambiar Contraseña / PIN</label>
+                        <input type="text" id="edit-password" placeholder="Dejar en blanco para mantener la actual">
                     </div>
 
                     <!-- Sección Biometría / Face ID -->
@@ -290,7 +313,7 @@
     <div id="modal-password" class="modal">
         <div class="modal-content" style="max-width: 440px;">
             <div class="modal-header">
-                <h3><i class="fa-solid fa-key" style="color: var(--primary-color);"></i> Cambiar Contraseña</h3>
+                <h3><i class="fa-solid fa-key" style="color: var(--primary-color);"></i> Clave Administrador</h3>
                 <span class="close-modal">&times;</span>
             </div>
             <div class="modal-body">
