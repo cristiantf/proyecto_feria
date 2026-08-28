@@ -13,7 +13,7 @@
         .admin-user-info {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
         }
         .admin-badge {
             display: flex;
@@ -30,6 +30,9 @@
     </style>
 </head>
 <body>
+    <!-- Contenedor global de Toasts flotantes -->
+    <div id="toast-container"></div>
+
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar">
@@ -41,10 +44,13 @@
                 <li data-target="logs-section"><i class="fa-solid fa-list-check"></i> Historial de Accesos</li>
             </ul>
             <div class="sidebar-footer">
-                <a href="login.html" class="btn btn-secondary w-100" style="text-decoration:none; text-align:center; margin-bottom: 10px;">
+                <button id="btn-sidebar-password" class="btn btn-secondary w-100" style="font-size: 0.85rem;">
+                    <i class="fa-solid fa-key"></i> Cambiar Contraseña
+                </button>
+                <a href="login.html" class="btn btn-secondary w-100" style="text-decoration:none; text-align:center; font-size: 0.85rem;">
                     <i class="fa-solid fa-camera"></i> Portal Biométrico
                 </a>
-                <button id="btn-sidebar-logout" class="btn btn-danger w-100">
+                <button id="btn-sidebar-logout" class="btn btn-danger w-100" style="font-size: 0.85rem;">
                     <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión
                 </button>
             </div>
@@ -59,6 +65,9 @@
                         <i class="fa-solid fa-user-shield"></i>
                         <span id="admin-nombre-display">Administrador</span>
                     </div>
+                    <button id="btn-open-password" class="btn btn-secondary" title="Cambiar Contraseña">
+                        <i class="fa-solid fa-key"></i> Contraseña
+                    </button>
                     <button id="btn-logout" class="btn btn-secondary" title="Cerrar sesión">
                         <i class="fa-solid fa-right-from-bracket"></i> Salir
                     </button>
@@ -190,11 +199,11 @@
         </div>
     </div>
 
-    <!-- Modal Editar Usuario y Permisos -->
+    <!-- Modal Editar Usuario, Permisos y Actualizar Face ID -->
     <div id="modal-editar-usuario" class="modal">
-        <div class="modal-content" style="max-width: 520px;">
+        <div class="modal-content" style="max-width: 540px;">
             <div class="modal-header">
-                <h3><i class="fa-solid fa-user-pen" style="color: var(--primary-color);"></i> Editar Usuario y Permisos</h3>
+                <h3><i class="fa-solid fa-user-pen" style="color: var(--primary-color);"></i> Editar Usuario y Face ID</h3>
                 <span class="close-modal">&times;</span>
             </div>
             <div class="modal-body">
@@ -204,6 +213,34 @@
                     <div class="form-group">
                         <label for="edit-nombre">Nombre Completo</label>
                         <input type="text" id="edit-nombre" required placeholder="Nombre del usuario">
+                    </div>
+
+                    <!-- Sección Biometría / Face ID -->
+                    <div class="biometric-edit-box">
+                        <div class="biometric-status-indicator">
+                            <div>
+                                <span style="font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">
+                                    <i class="fa-solid fa-id-badge" style="color: var(--primary-color);"></i> Registro Biométrico (Face ID)
+                                </span>
+                                <p id="edit-face-status-text" style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 2px;">
+                                    Rostro actual almacenado y activo
+                                </p>
+                            </div>
+                            <button type="button" id="btn-toggle-recaptura" class="btn btn-sm btn-secondary">
+                                <i class="fa-solid fa-camera-rotate"></i> Actualizar Rostro
+                            </button>
+                        </div>
+
+                        <!-- Panel desplegable de cámara para recaptura -->
+                        <div id="panel-recaptura" style="display: none; margin-top: 14px; text-align: center;">
+                            <div style="position: relative; display: inline-block;">
+                                <video id="video-recaptura" width="360" height="270" autoplay muted style="border-radius: 8px; border: 2px solid var(--primary-color);"></video>
+                                <canvas id="canvas-recaptura" style="position: absolute; top: 0; left: 0;"></canvas>
+                            </div>
+                            <p id="estado-ia-recaptura" style="color: var(--text-secondary); font-size: 0.825rem; margin-top: 6px;">
+                                Mira fijamente a la cámara para capturar el nuevo rostro...
+                            </p>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -245,6 +282,56 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Cambiar Contraseña de Administrador -->
+    <div id="modal-password" class="modal">
+        <div class="modal-content" style="max-width: 440px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-key" style="color: var(--primary-color);"></i> Cambiar Contraseña</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="form-cambiar-password">
+                    <div class="form-group">
+                        <label for="pass-actual">Contraseña Actual</label>
+                        <input type="password" id="pass-actual" required placeholder="Ingresa tu contraseña actual">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pass-nueva">Nueva Contraseña</label>
+                        <input type="password" id="pass-nueva" required minlength="4" placeholder="Mínimo 4 caracteres">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pass-confirmar">Confirmar Nueva Contraseña</label>
+                        <input type="password" id="pass-confirmar" required minlength="4" placeholder="Repite la nueva contraseña">
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 24px;">
+                        <button type="button" class="btn btn-secondary w-100 close-modal">Cancelar</button>
+                        <button type="submit" id="btn-submit-password" class="btn btn-primary w-100">
+                            <i class="fa-solid fa-lock"></i> Actualizar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmación Moderno (Reemplaza confirm()) -->
+    <div id="modal-confirmacion" class="modal">
+        <div class="modal-content confirm-dialog-content">
+            <div id="confirm-icon-container" class="confirm-icon-wrapper confirm-icon-danger">
+                <i class="fa-solid fa-trash-can"></i>
+            </div>
+            <h3 id="confirm-title" class="confirm-title">¿Estás seguro?</h3>
+            <p id="confirm-message" class="confirm-message">Esta acción no se puede deshacer.</p>
+            <div class="confirm-buttons">
+                <button id="btn-confirm-cancel" class="btn btn-secondary" style="min-width: 110px;">Cancelar</button>
+                <button id="btn-confirm-ok" class="btn btn-danger" style="min-width: 110px;">Confirmar</button>
             </div>
         </div>
     </div>

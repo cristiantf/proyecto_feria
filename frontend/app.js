@@ -19,15 +19,109 @@ try {
     console.error('Error al leer datos de sesión:', e);
 }
 
-function cerrarSesionAdmin() {
-    if (confirm('¿Deseas cerrar la sesión administrativa?')) {
+// ==========================================
+// SISTEMA DE MENSAJES EMERGENTES (TOASTS)
+// ==========================================
+const toastContainer = document.getElementById('toast-container');
+
+function showToast(title, message, type = 'success', duration = 4000) {
+    const icons = {
+        success: 'fa-circle-check',
+        error: 'fa-circle-exclamation',
+        warning: 'fa-triangle-exclamation',
+        info: 'fa-circle-info'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <i class="fa-solid ${icons[type] || 'fa-bell'} toast-icon"></i>
+        <div class="toast-body">
+            <div class="toast-title">${title}</div>
+            <div class="toast-message">${message}</div>
+        </div>
+        <button class="toast-close">&times;</button>
+        <div class="toast-progress" style="animation-duration: ${duration}ms;"></div>
+    `;
+
+    toastContainer.appendChild(toast);
+
+    const closeToast = () => {
+        toast.classList.add('hide');
+        setTimeout(() => toast.remove(), 300);
+    };
+
+    toast.querySelector('.toast-close').addEventListener('click', closeToast);
+    const autoTimer = setTimeout(closeToast, duration);
+}
+
+// ==========================================
+// DIÁLOGO DE CONFIRMACIÓN MODERNO (PROMISE)
+// ==========================================
+const modalConfirmacion = document.getElementById('modal-confirmacion');
+const confirmTitle = document.getElementById('confirm-title');
+const confirmMessage = document.getElementById('confirm-message');
+const confirmIconContainer = document.getElementById('confirm-icon-container');
+const btnConfirmOk = document.getElementById('btn-confirm-ok');
+const btnConfirmCancel = document.getElementById('btn-confirm-cancel');
+
+function showConfirm(title, message, confirmText = 'Confirmar', isDanger = true) {
+    return new Promise((resolve) => {
+        confirmTitle.innerText = title;
+        confirmMessage.innerText = message;
+        btnConfirmOk.innerText = confirmText;
+
+        if (isDanger) {
+            btnConfirmOk.className = 'btn btn-danger';
+            confirmIconContainer.className = 'confirm-icon-wrapper confirm-icon-danger';
+            confirmIconContainer.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+        } else {
+            btnConfirmOk.className = 'btn btn-primary';
+            confirmIconContainer.className = 'confirm-icon-wrapper';
+            confirmIconContainer.style.background = 'rgba(59, 130, 246, 0.15)';
+            confirmIconContainer.style.color = 'var(--primary-color)';
+            confirmIconContainer.innerHTML = '<i class="fa-solid fa-question"></i>';
+        }
+
+        modalConfirmacion.classList.add('show');
+
+        const handleOk = () => {
+            cleanup();
+            modalConfirmacion.classList.remove('show');
+            resolve(true);
+        };
+
+        const handleCancel = () => {
+            cleanup();
+            modalConfirmacion.classList.remove('show');
+            resolve(false);
+        };
+
+        function cleanup() {
+            btnConfirmOk.removeEventListener('click', handleOk);
+            btnConfirmCancel.removeEventListener('click', handleCancel);
+        }
+
+        btnConfirmOk.addEventListener('click', handleOk);
+        btnConfirmCancel.addEventListener('click', handleCancel);
+    });
+}
+
+// ==========================================
+// CIERRE DE SESIÓN
+// ==========================================
+async function cerrarSesionAdmin() {
+    const confirm = await showConfirm('Cerrar Sesión', '¿Estás seguro de que deseas salir del panel de administración?', 'Cerrar Sesión', false);
+    if (confirm) {
         localStorage.removeItem('admin_session');
         localStorage.removeItem('admin_token');
-        window.location.href = 'admin_login.html';
+        showToast('Sesión Finalizada', 'Has cerrado sesión correctamente.', 'info', 1500);
+        setTimeout(() => {
+            window.location.href = 'admin_login.html';
+        }, 800);
     }
 }
 
-// Botones de Logout
 const btnLogout = document.getElementById('btn-logout');
 if (btnLogout) btnLogout.addEventListener('click', cerrarSesionAdmin);
 
@@ -45,20 +139,35 @@ const tablaLogs = document.getElementById('tabla-logs');
 // Modales
 const modalUsuario = document.getElementById('modal-usuario');
 const modalEditarUsuario = document.getElementById('modal-editar-usuario');
+const modalPassword = document.getElementById('modal-password');
 const btnNuevoUsuario = document.getElementById('btn-nuevo-usuario');
+const btnOpenPassword = document.getElementById('btn-open-password');
+const btnSidebarPassword = document.getElementById('btn-sidebar-password');
 const closeBtns = document.querySelectorAll('.close-modal');
 
 // Formularios
 const formUsuario = document.getElementById('form-usuario');
 const formEditarUsuario = document.getElementById('form-editar-usuario');
+const formCambiarPassword = document.getElementById('form-cambiar-password');
 const btnRefreshLogs = document.getElementById('btn-refresh-logs');
 
-// IA y Video
+// IA y Video para Registro
 const video = document.getElementById('video-registro');
 const canvas = document.getElementById('canvas-registro');
 const estadoIA = document.getElementById('estado-ia');
 const btnGuardar = document.getElementById('btn-guardar');
 let capturedDescriptor = null;
+
+// IA y Video para Recaptura en Edición
+const btnToggleRecaptura = document.getElementById('btn-toggle-recaptura');
+const panelRecaptura = document.getElementById('panel-recaptura');
+const videoRecaptura = document.getElementById('video-recaptura');
+const canvasRecaptura = document.getElementById('canvas-recaptura');
+const estadoIARecaptura = document.getElementById('estado-ia-recaptura');
+const editFaceStatusText = document.getElementById('edit-face-status-text');
+let editCapturedDescriptor = null;
+let recapturaStream = null;
+let recapturaInterval = null;
 
 // Cache local de usuarios
 let listaUsuarios = [];
@@ -102,21 +211,15 @@ async function cargarUsuarios() {
         listaUsuarios.forEach(user => {
             const fecha = user.creado_en ? new Date(user.creado_en).toLocaleString() : 'Reciente';
             
-            // Renderizar badges de dispositivos permitidos
+            // Badges de dispositivos
             const perms = Array.isArray(user.permisos) ? user.permisos : ['puerta', 'luces', 'bomba'];
             let badgesHtml = '<div class="devices-badges-wrapper">';
             if (perms.length === 0) {
                 badgesHtml += '<span class="badge-device badge-none"><i class="fa-solid fa-ban"></i> Sin permisos</span>';
             } else {
-                if (perms.includes('puerta')) {
-                    badgesHtml += '<span class="badge-device badge-door"><i class="fa-solid fa-door-open"></i> Puerta</span>';
-                }
-                if (perms.includes('luces')) {
-                    badgesHtml += '<span class="badge-device badge-lights"><i class="fa-solid fa-lightbulb"></i> Luces</span>';
-                }
-                if (perms.includes('bomba')) {
-                    badgesHtml += '<span class="badge-device badge-pump"><i class="fa-solid fa-water"></i> Bomba</span>';
-                }
+                if (perms.includes('puerta')) badgesHtml += '<span class="badge-device badge-door"><i class="fa-solid fa-door-open"></i> Puerta</span>';
+                if (perms.includes('luces')) badgesHtml += '<span class="badge-device badge-lights"><i class="fa-solid fa-lightbulb"></i> Luces</span>';
+                if (perms.includes('bomba')) badgesHtml += '<span class="badge-device badge-pump"><i class="fa-solid fa-water"></i> Bomba</span>';
             }
             badgesHtml += '</div>';
 
@@ -134,7 +237,7 @@ async function cargarUsuarios() {
                 <td style="color: var(--text-secondary); font-size: 0.85rem;">${fecha}</td>
                 <td style="text-align: center;">
                     <div class="action-buttons" style="justify-content: center;">
-                        <button class="btn btn-sm btn-action-edit" onclick="abrirModalEditar(${user.id})" title="Editar usuario y permisos">
+                        <button class="btn btn-sm btn-action-edit" onclick="abrirModalEditar(${user.id})" title="Editar usuario y Face ID">
                             <i class="fa-solid fa-pen-to-square"></i> Editar
                         </button>
                         <button class="btn btn-sm btn-action-delete" onclick="eliminarUsuario(${user.id}, '${escapeHtml(user.nombre)}')" title="Eliminar usuario">
@@ -147,6 +250,7 @@ async function cargarUsuarios() {
         });
     } catch (error) {
         console.error('Error al cargar usuarios:', error);
+        showToast('Error', 'No se pudieron cargar los usuarios del servidor.', 'error');
     }
 }
 
@@ -155,7 +259,7 @@ function escapeHtml(text) {
 }
 
 // ==========================================
-// EDITAR USUARIO
+// EDITAR USUARIO Y ACTUALIZAR FACE ID
 // ==========================================
 function abrirModalEditar(id) {
     const user = listaUsuarios.find(u => u.id === id);
@@ -170,7 +274,80 @@ function abrirModalEditar(id) {
     document.getElementById('edit-perm-luces').checked = perms.includes('luces');
     document.getElementById('edit-perm-bomba').checked = perms.includes('bomba');
 
+    // Resetear panel de recaptura facial
+    editCapturedDescriptor = null;
+    panelRecaptura.style.display = 'none';
+    editFaceStatusText.innerText = 'Rostro biométrico original activo';
+    editFaceStatusText.style.color = 'var(--text-secondary)';
+    btnToggleRecaptura.innerHTML = '<i class="fa-solid fa-camera-rotate"></i> Actualizar Rostro';
+    detenerCamaraRecaptura();
+
     modalEditarUsuario.classList.add('show');
+}
+
+// Botón para alternar la cámara de recaptura facial
+btnToggleRecaptura.addEventListener('click', async () => {
+    if (panelRecaptura.style.display === 'none') {
+        panelRecaptura.style.display = 'block';
+        btnToggleRecaptura.innerHTML = '<i class="fa-solid fa-eye-slash"></i> Cancelar Cámara';
+        await iniciarCamaraRecaptura();
+    } else {
+        panelRecaptura.style.display = 'none';
+        btnToggleRecaptura.innerHTML = '<i class="fa-solid fa-camera-rotate"></i> Actualizar Rostro';
+        detenerCamaraRecaptura();
+    }
+});
+
+async function iniciarCamaraRecaptura() {
+    estadoIARecaptura.innerText = "Iniciando cámara para Face ID...";
+    try {
+        recapturaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        videoRecaptura.srcObject = recapturaStream;
+        
+        videoRecaptura.onloadedmetadata = () => {
+            videoRecaptura.play();
+            const displaySize = { width: videoRecaptura.width, height: videoRecaptura.height };
+            faceapi.matchDimensions(canvasRecaptura, displaySize);
+            
+            recapturaInterval = setInterval(async () => {
+                if (!modalEditarUsuario.classList.contains('show') || panelRecaptura.style.display === 'none') return;
+
+                const detections = await faceapi.detectSingleFace(videoRecaptura).withFaceLandmarks().withFaceDescriptor();
+                const context = canvasRecaptura.getContext('2d');
+                context.clearRect(0, 0, canvasRecaptura.width, canvasRecaptura.height);
+
+                if (detections) {
+                    const resized = faceapi.resizeResults(detections, displaySize);
+                    faceapi.draw.drawDetections(canvasRecaptura, resized);
+                    faceapi.draw.drawFaceLandmarks(canvasRecaptura, resized);
+
+                    editCapturedDescriptor = Array.from(detections.descriptor);
+                    estadoIARecaptura.innerText = "¡Nuevo rostro detectado y listo!";
+                    estadoIARecaptura.style.color = "var(--success-color)";
+                    editFaceStatusText.innerText = "✓ Nuevo rostro capturado (se guardará al actualizar)";
+                    editFaceStatusText.style.color = "var(--success-color)";
+                } else {
+                    estadoIARecaptura.innerText = "Buscando rostro... Mira fijamente a la cámara.";
+                    estadoIARecaptura.style.color = "var(--warning-color)";
+                }
+            }, 500);
+        };
+    } catch (err) {
+        estadoIARecaptura.innerText = "No se pudo acceder a la cámara.";
+        showToast('Cámara', 'No se pudo iniciar la cámara para Face ID.', 'warning');
+    }
+}
+
+function detenerCamaraRecaptura() {
+    if (recapturaInterval) clearInterval(recapturaInterval);
+    if (recapturaStream) {
+        recapturaStream.getTracks().forEach(track => track.stop());
+        recapturaStream = null;
+    }
+    if (canvasRecaptura) {
+        const context = canvasRecaptura.getContext('2d');
+        context.clearRect(0, 0, canvasRecaptura.width, canvasRecaptura.height);
+    }
 }
 
 formEditarUsuario.addEventListener('submit', async (e) => {
@@ -185,6 +362,11 @@ formEditarUsuario.addEventListener('submit', async (e) => {
     if (document.getElementById('edit-perm-luces').checked) permisos.push('luces');
     if (document.getElementById('edit-perm-bomba').checked) permisos.push('bomba');
 
+    const payload = { nombre, tiene_acceso, permisos };
+    if (editCapturedDescriptor) {
+        payload.face_descriptor = editCapturedDescriptor;
+    }
+
     const btnSubmit = document.getElementById('btn-actualizar-usuario');
     btnSubmit.disabled = true;
     btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
@@ -193,7 +375,7 @@ formEditarUsuario.addEventListener('submit', async (e) => {
         const res = await fetch(`${API_URL}/usuarios/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre, tiene_acceso, permisos })
+            body: JSON.stringify(payload)
         });
 
         if (!res.ok) {
@@ -201,12 +383,15 @@ formEditarUsuario.addEventListener('submit', async (e) => {
             throw new Error(errData.error || 'Error al actualizar');
         }
 
+        detenerCamaraRecaptura();
         modalEditarUsuario.classList.remove('show');
         await cargarUsuarios();
-        alert(`¡Usuario "${nombre}" actualizado correctamente!`);
+        
+        const faceMsg = editCapturedDescriptor ? ' y nuevo Face ID actualizado' : '';
+        showToast('Usuario Actualizado', `¡"${nombre}" actualizado con éxito${faceMsg}!`, 'success');
     } catch (error) {
         console.error('Error al actualizar usuario:', error);
-        alert(`Error al guardar cambios: ${error.message}`);
+        showToast('Error', error.message, 'error');
     } finally {
         btnSubmit.disabled = false;
         btnSubmit.innerHTML = '<i class="fa-solid fa-check"></i> Guardar Cambios';
@@ -217,9 +402,14 @@ formEditarUsuario.addEventListener('submit', async (e) => {
 // ELIMINAR USUARIO
 // ==========================================
 async function eliminarUsuario(id, nombre) {
-    if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente a "${nombre}" (ID: ${id})?\n\nEsta acción borrará sus datos biométricos y permisos de acceso.`)) {
-        return;
-    }
+    const confirmed = await showConfirm(
+        'Eliminar Usuario',
+        `¿Estás seguro de que deseas eliminar permanentemente a "${nombre}" (ID: #${id})? Se borrarán sus datos biométricos y permisos.`,
+        'Eliminar Permanentemente',
+        true
+    );
+
+    if (!confirmed) return;
 
     try {
         const res = await fetch(`${API_URL}/usuarios/${id}`, {
@@ -232,12 +422,64 @@ async function eliminarUsuario(id, nombre) {
         }
 
         await cargarUsuarios();
-        alert(`Usuario "${nombre}" eliminado con éxito.`);
+        showToast('Usuario Eliminado', `"${nombre}" ha sido eliminado del sistema.`, 'success');
     } catch (error) {
         console.error('Error al eliminar usuario:', error);
-        alert(`Error al eliminar usuario: ${error.message}`);
+        showToast('Error', error.message, 'error');
     }
 }
+
+// ==========================================
+// CAMBIAR CONTRASEÑA DEL ADMINISTRADOR
+// ==========================================
+const abrirModalPassword = () => {
+    formCambiarPassword.reset();
+    modalPassword.classList.add('show');
+};
+
+if (btnOpenPassword) btnOpenPassword.addEventListener('click', abrirModalPassword);
+if (btnSidebarPassword) btnSidebarPassword.addEventListener('click', abrirModalPassword);
+
+formCambiarPassword.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const passActual = document.getElementById('pass-actual').value.trim();
+    const passNueva = document.getElementById('pass-nueva').value.trim();
+    const passConfirmar = document.getElementById('pass-confirmar').value.trim();
+
+    if (passNueva !== passConfirmar) {
+        showToast('Error de Validación', 'Las nuevas contraseñas no coinciden.', 'warning');
+        return;
+    }
+
+    const btnSubmit = document.getElementById('btn-submit-password');
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Actualizando...';
+
+    try {
+        const res = await fetch(`${API_URL}/admin/password`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                adminId: currentAdmin ? currentAdmin.id : 1,
+                passwordActual: passActual,
+                nuevaPassword: passNueva
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al cambiar contraseña');
+
+        modalPassword.classList.remove('show');
+        formCambiarPassword.reset();
+        showToast('Seguridad Actualizada', 'Tu contraseña de administrador ha sido cambiada con éxito.', 'success');
+    } catch (error) {
+        showToast('Error de Autenticación', error.message, 'error');
+    } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = '<i class="fa-solid fa-lock"></i> Actualizar';
+    }
+});
 
 // ==========================================
 // CARGAR LOGS DE AUDITORÍA
@@ -278,6 +520,7 @@ async function cargarLogs() {
         });
     } catch (error) {
         console.error('Error al cargar logs:', error);
+        showToast('Error', 'No se pudieron sincronizar los logs de acceso.', 'error');
     }
 }
 
@@ -305,6 +548,7 @@ async function cargarModelos() {
         }
     }
     estadoIA.innerText = "Error cargando modelos. Asegúrate de iniciar un servidor web local.";
+    showToast('Modelos IA', 'No se pudieron cargar los pesos de face-api.js.', 'warning');
 }
 
 function iniciarCamara() {
@@ -314,6 +558,7 @@ function iniciarCamara() {
     })
     .catch(err => {
         estadoIA.innerText = "Error al acceder a la cámara o permisos denegados.";
+        showToast('Cámara', 'Permisos de cámara denegados o cámara no encontrada.', 'warning');
     });
 }
 
@@ -352,7 +597,7 @@ video.addEventListener('play', () => {
 formUsuario.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!capturedDescriptor) {
-        alert("Aún no se ha capturado un rostro válido. Por favor mira a la cámara.");
+        showToast('Atención', 'Aún no se ha capturado un rostro válido.', 'warning');
         return;
     }
 
@@ -366,7 +611,7 @@ formUsuario.addEventListener('submit', async (e) => {
     if (document.getElementById('perm-bomba').checked) permisos.push('bomba');
 
     if (!nombre) {
-        alert("Por favor ingresa el nombre del usuario.");
+        showToast('Campo Requerido', 'Por favor ingresa el nombre del usuario.', 'warning');
         return;
     }
 
@@ -392,17 +637,17 @@ formUsuario.addEventListener('submit', async (e) => {
         btnGuardar.disabled = false;
 
         await cargarUsuarios();
-        alert(`¡Usuario "${nombre}" registrado con éxito!`);
+        showToast('Usuario Creado', `¡"${nombre}" registrado con éxito!`, 'success');
     } catch (error) {
         console.error('Error al crear usuario:', error);
-        alert(`Error al guardar usuario: ${error.message}`);
+        showToast('Error al Guardar', error.message, 'error');
         btnGuardar.disabled = false;
         btnGuardar.innerText = "Guardar Rostro y Usuario";
     }
 });
 
 // ==========================================
-// MODALES Y EVENTOS
+// MODALES Y EVENTOS GENERALES
 // ==========================================
 btnNuevoUsuario.addEventListener('click', () => {
     modalUsuario.classList.add('show');
@@ -412,9 +657,14 @@ btnNuevoUsuario.addEventListener('click', () => {
 closeBtns.forEach(btn => btn.addEventListener('click', () => {
     modalUsuario.classList.remove('show');
     modalEditarUsuario.classList.remove('show');
+    modalPassword.classList.remove('show');
+    detenerCamaraRecaptura();
 }));
 
-btnRefreshLogs.addEventListener('click', cargarLogs);
+btnRefreshLogs.addEventListener('click', () => {
+    cargarLogs();
+    showToast('Logs Actualizados', 'Historial de accesos sincronizado.', 'info', 2000);
+});
 
 // Inicializar tabla
 cargarUsuarios();

@@ -7,12 +7,49 @@ const pantallaReconocimiento = document.getElementById('pantalla-reconocimiento'
 const pantallaControl = document.getElementById('pantalla-control');
 const bienvenidaUsuario = document.getElementById('bienvenida-usuario');
 const permisosListaDisplay = document.getElementById('permisos-lista-display');
+const toastContainer = document.getElementById('toast-container');
 
 let labeledFaceDescriptors = [];
-let userMetadataMap = {}; // Mapa para obtener datos de usuario (permisos, nombre) por ID
+let userMetadataMap = {};
 let faceMatcher = null;
 let scanning = false;
 let currentUser = null;
+
+// ==========================================
+// SISTEMA DE TOASTS
+// ==========================================
+function showToast(title, message, type = 'success', duration = 3500) {
+    if (!toastContainer) return;
+
+    const icons = {
+        success: 'fa-circle-check',
+        error: 'fa-circle-exclamation',
+        warning: 'fa-triangle-exclamation',
+        info: 'fa-circle-info'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <i class="fa-solid ${icons[type] || 'fa-bell'} toast-icon"></i>
+        <div class="toast-body">
+            <div class="toast-title">${title}</div>
+            <div class="toast-message">${message}</div>
+        </div>
+        <button class="toast-close">&times;</button>
+        <div class="toast-progress" style="animation-duration: ${duration}ms;"></div>
+    `;
+
+    toastContainer.appendChild(toast);
+
+    const closeToast = () => {
+        toast.classList.add('hide');
+        setTimeout(() => toast.remove(), 300);
+    };
+
+    toast.querySelector('.toast-close').addEventListener('click', closeToast);
+    setTimeout(closeToast, duration);
+}
 
 // ==========================================
 // INICIALIZACIÓN
@@ -40,6 +77,7 @@ async function init() {
 
     if (!modelsLoaded) {
         estadoLogin.innerText = "Error cargando modelos. Asegúrate de ejecutar bajo un servidor web local.";
+        showToast('Error de Modelos', 'No se pudieron cargar los modelos de visión artificial.', 'error');
         return;
     }
 
@@ -52,6 +90,7 @@ async function init() {
     } catch(err) {
         console.error(err);
         estadoLogin.innerText = "Error al conectar con la base de datos o iniciar cámara.";
+        showToast('Conexión', 'Error al sincronizar rostros con el servidor.', 'error');
     }
 }
 
@@ -84,7 +123,6 @@ async function cargarRostrosDesdeBD() {
             );
         });
 
-        // 0.5 distancia estricta
         faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5); 
     } catch(err) {
         console.error("Error cargando rostros BD:", err);
@@ -99,6 +137,7 @@ function iniciarCamara() {
     })
     .catch(err => {
         estadoLogin.innerText = "Cámara no detectada o permisos denegados. Puedes usar el botón de prueba demo.";
+        showToast('Cámara', 'No se detectó cámara web. Puedes probar con el botón de demostración.', 'warning');
     });
 }
 
@@ -119,12 +158,10 @@ video.addEventListener('play', () => {
             const resizedDetections = faceapi.resizeResults(detections, displaySize);
             faceapi.draw.drawDetections(canvas, resizedDetections);
             
-            // Buscar coincidencia
             const bestMatch = faceMatcher.findBestMatch(detections.descriptor);
             
             if (bestMatch.label !== 'unknown') {
-                // EXITO: ROSTRO RECONOCIDO
-                scanning = false; // Detener escaneo
+                scanning = false;
                 clearInterval(scanInterval);
                 
                 const [idStr] = bestMatch.label.split('|');
@@ -136,10 +173,8 @@ video.addEventListener('play', () => {
                 estadoLogin.innerText = `¡Hola ${currentUser.nombre}! Accediendo...`;
                 estadoLogin.style.color = "var(--success-color)";
                 
-                // Registrar log en BD
                 await registrarAcceso(currentUser.id, 'EXITO');
-                
-                // Mostrar panel de control
+                showToast('Acceso Concedido', `Bienvenido/a, ${currentUser.nombre}`, 'success', 3000);
                 setTimeout(mostrarPanelControl, 800);
 
             } else {
@@ -182,6 +217,7 @@ async function simularAccesoDemo() {
         estadoLogin.innerText = `Autenticando usuario demo: ${currentUser.nombre}...`;
         estadoLogin.style.color = 'var(--success-color)';
         await registrarAcceso(currentUser.id, 'EXITO');
+        showToast('Acceso Demo', `Modo demostración iniciado como ${currentUser.nombre}`, 'info', 2500);
         setTimeout(mostrarPanelControl, 600);
     } catch (e) {
         console.error('Error en demo:', e);
@@ -199,7 +235,6 @@ function mostrarPanelControl() {
 
     const permisos = Array.isArray(currentUser.permisos) ? currentUser.permisos : ['puerta', 'luces', 'bomba'];
     
-    // Renderizar badges de permisos
     let badgesHtml = '';
     if (permisos.length === 0) {
         badgesHtml = '<span class="badge-device badge-none"><i class="fa-solid fa-ban"></i> Sin permisos asignados</span>';
@@ -210,7 +245,6 @@ function mostrarPanelControl() {
     }
     permisosListaDisplay.innerHTML = badgesHtml;
 
-    // Control de activación de botones por dispositivo
     configurarBoton('btn-puerta', permisos.includes('puerta'), 'Abrir Puerta (3s)', 'Puerta (Sin permiso)');
     configurarBoton('btn-luces-on', permisos.includes('luces'), 'Encender Luces', 'Luces (Sin permiso)');
     configurarBoton('btn-luces-off', permisos.includes('luces'), 'Apagar Luces', 'Luces (Sin permiso)');
@@ -247,15 +281,16 @@ async function enviarComando(accion) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error al enviar comando');
 
-        // Feedback visual
+        showToast('Comando IoT', `Instrucción "${accion}" enviada al ESP8266`, 'success', 2500);
+
         if (event && event.currentTarget) {
             const btn = event.currentTarget;
             const originalHtml = btn.innerHTML;
-            btn.innerHTML = `<i class="fa-solid fa-check"></i> <span>Enviado al ESP8266</span>`;
+            btn.innerHTML = `<i class="fa-solid fa-check"></i> <span>Enviado</span>`;
             setTimeout(() => btn.innerHTML = originalHtml, 1800);
         }
     } catch (error) {
-        alert(error.message || "Error al enviar el comando al servidor.");
+        showToast('Acceso Restringido', error.message, 'error', 3500);
     }
 }
 
@@ -265,10 +300,7 @@ function cerrarSesion() {
     estadoLogin.innerText = "Por favor, mira a la cámara para iniciar sesión.";
     estadoLogin.style.color = "var(--text-secondary)";
     currentUser = null;
-    
-    // Recargar página para limpiar memoria y reiniciar escaneo limpio
     window.location.reload(); 
 }
 
-// Arrancar
 init();

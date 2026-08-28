@@ -125,7 +125,7 @@ async function inicializarBaseDatos() {
 inicializarBaseDatos();
 
 // ==========================================
-// ENDPOINTS DE AUTENTICACIÓN ADMINISTRATIVA
+// ENDPOINTS DE AUTENTICACIÓN Y ADMIN
 // ==========================================
 
 // Inicio de sesión para administradores
@@ -164,6 +164,37 @@ app.post('/api/admin/login', async (req, res) => {
     } catch (error) {
         console.error('❌ Error en login de administrador:', error.message);
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Cambiar contraseña del administrador
+app.put('/api/admin/password', async (req, res) => {
+    const { adminId, passwordActual, nuevaPassword } = req.body;
+    if (!passwordActual || !nuevaPassword) {
+        return res.status(400).json({ error: 'La contraseña actual y la nueva contraseña son obligatorias.' });
+    }
+
+    if (nuevaPassword.trim().length < 4) {
+        return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 4 caracteres.' });
+    }
+
+    try {
+        const [rows] = await pool.query('SELECT id, password FROM administradores WHERE id = ?', [adminId || 1]);
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Administrador no encontrado.' });
+        }
+
+        const admin = rows[0];
+        if (admin.password !== passwordActual.trim()) {
+            return res.status(401).json({ error: 'La contraseña actual es incorrecta.' });
+        }
+
+        await pool.query('UPDATE administradores SET password = ? WHERE id = ?', [nuevaPassword.trim(), admin.id]);
+        console.log(`🔒 Contraseña de administrador actualizada para ID: ${admin.id}`);
+        res.json({ success: true, message: 'Contraseña actualizada con éxito.' });
+    } catch (error) {
+        console.error('❌ Error al cambiar contraseña de admin:', error.message);
+        res.status(500).json({ error: error.message });
     }
 });
 
@@ -242,10 +273,10 @@ app.post('/api/usuarios', async (req, res) => {
     }
 });
 
-// 4. Editar usuario existente (Nombre, Acceso, Permisos de Dispositivos)
+// 4. Editar usuario existente (Nombre, Acceso, Permisos de Dispositivos y Face ID opcional)
 app.put('/api/usuarios/:id', async (req, res) => {
     const { id } = req.params;
-    const { nombre, tiene_acceso, permisos } = req.body;
+    const { nombre, tiene_acceso, permisos, face_descriptor } = req.body;
 
     if (!nombre) {
         return res.status(400).json({ error: 'El nombre es obligatorio.' });
@@ -254,16 +285,27 @@ app.put('/api/usuarios/:id', async (req, res) => {
     const permisosStr = JSON.stringify(Array.isArray(permisos) ? permisos : ['puerta', 'luces', 'bomba']);
 
     try {
-        const [result] = await pool.query(
-            'UPDATE usuarios SET nombre = ?, tiene_acceso = ?, permisos = ? WHERE id = ?',
-            [nombre.trim(), tiene_acceso === true || tiene_acceso === 1, permisosStr, id]
-        );
+        let result;
+        if (face_descriptor && Array.isArray(face_descriptor) && face_descriptor.length > 0) {
+            // Actualización con nuevo Face ID
+            [result] = await pool.query(
+                'UPDATE usuarios SET nombre = ?, tiene_acceso = ?, permisos = ?, face_descriptor = ? WHERE id = ?',
+                [nombre.trim(), tiene_acceso === true || tiene_acceso === 1, permisosStr, JSON.stringify(face_descriptor), id]
+            );
+            console.log(`📸 Face ID y datos actualizados para usuario ID ${id} (${nombre})`);
+        } else {
+            // Actualización de datos sin cambiar el rostro existente
+            [result] = await pool.query(
+                'UPDATE usuarios SET nombre = ?, tiene_acceso = ?, permisos = ? WHERE id = ?',
+                [nombre.trim(), tiene_acceso === true || tiene_acceso === 1, permisosStr, id]
+            );
+            console.log(`✏️ Usuario actualizado: [ID: ${id}] ${nombre} | Permisos: ${permisosStr}`);
+        }
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: 'Usuario no encontrado.' });
         }
 
-        console.log(`✏️ Usuario actualizado: [ID: ${id}] ${nombre} | Permisos: ${permisosStr} | Acceso: ${tiene_acceso}`);
         res.json({ success: true, id: parseInt(id), nombre, tiene_acceso, permisos: JSON.parse(permisosStr) });
     } catch (error) {
         console.error('❌ Error al actualizar usuario:', error.message);
@@ -312,7 +354,7 @@ app.post('/api/recibir_log', async (req, res) => {
 
 // Enviar comando para los relés
 app.post('/api/comando', async (req, res) => {
-    const { accion, userId } = req.body; // Ej: ABRIR_PUERTA, LUCES_ON, LUCES_OFF
+    const { accion, userId } = req.body;
     if (!accion) {
         return res.status(400).json({ error: 'Acción requerida.' });
     }
@@ -332,7 +374,6 @@ app.post('/api/comando', async (req, res) => {
                     userPerms = typeof user.permisos === 'string' ? JSON.parse(user.permisos) : user.permisos;
                 } catch (e) {}
 
-                // Validar correspondencia de comando y permiso
                 const mapComandoPermiso = {
                     'ABRIR_PUERTA': 'puerta',
                     'LUCES_ON': 'luces',

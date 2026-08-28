@@ -14,10 +14,11 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 | Método | Ruta | Propósito | Autenticación |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/admin/login` | Autenticación de administradores | Pública / Credenciales |
+| `PUT` | `/api/admin/password` | Cambiar contraseña del administrador | Pública / Validación actual |
 | `GET` | `/api/usuarios` | Listar usuarios registrados con sus permisos de dispositivos | Pública |
 | `GET` | `/api/rostros` | Descargar vectores biométricos y permisos para matching | Pública |
 | `POST` | `/api/usuarios` | Registrar un nuevo usuario con vector facial y permisos | Pública |
-| `PUT` | `/api/usuarios/:id` | Actualizar nombre, estado de acceso y permisos de dispositivos | Pública |
+| `PUT` | `/api/usuarios/:id` | Actualizar nombre, permisos y opcionalmente Face ID | Pública |
 | `DELETE` | `/api/usuarios/:id` | Eliminar usuario de la base de datos | Pública |
 | `POST` | `/api/recibir_log` | Registrar eventos de auditoría de acceso | Pública |
 | `GET` | `/api/logs` | Consultar los últimos 50 registros de acceso | Pública |
@@ -53,8 +54,28 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 
 ---
 
+#### `PUT /api/admin/password`
+- **Descripción:** Actualiza la contraseña del administrador tras validar la contraseña actual.
+- **Request Body:**
+```json
+{
+  "adminId": 1,
+  "passwordActual": "admin123",
+  "nuevaPassword": "miNuevaPasswordSegura"
+}
+```
+- **Respuesta Exitosa (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Contraseña actualizada con éxito."
+}
+```
+
+---
+
 #### `GET /api/usuarios`
-- **Descripción:** Retorna los datos de todos los usuarios registrados incluyendo sus permisos de dispositivos (excluyendo el vector biométrico para optimizar ancho de banda).
+- **Descripción:** Retorna los datos de todos los usuarios registrados incluyendo sus permisos de dispositivos.
 - **Respuesta Exitosa (200 OK):**
 ```json
 [
@@ -95,13 +116,14 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 ---
 
 #### `PUT /api/usuarios/:id`
-- **Descripción:** Actualiza los datos y permisos de un usuario existente.
+- **Descripción:** Actualiza los datos, permisos y opcionalmente el Face ID de un usuario existente.
 - **Request Body:**
 ```json
 {
   "nombre": "Juan Pérez Actualizado",
   "tiene_acceso": true,
-  "permisos": ["luces", "bomba"]
+  "permisos": ["luces", "bomba"],
+  "face_descriptor": [-0.1245, "...128 flotantes... (opcional)"]
 }
 ```
 - **Respuesta Exitosa (200 OK):**
