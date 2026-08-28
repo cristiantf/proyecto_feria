@@ -6,38 +6,52 @@
 [![ESP8266](https://img.shields.io/badge/Hardware-ESP8266%20NodeMCU-red.svg)](https://www.espressif.com/)
 [![face-api.js](https://img.shields.io/badge/AI-Face--API.js%20(TensorFlow.js)-orange.svg)](https://justadudewhohacks.github.io/face-api.js/docs/index.html)
 
-Sistema integral de seguridad y domótica desarrollado para proyectos de feria tecnológica. Combina **Inteligencia Artificial en el navegador (Visión Artificial / Reconocimiento Facial)**, un **Backend REST con Node.js & MySQL**, y un **Microcontrolador ESP8266** para la activación física de actuadores (cerradura eléctrica/puerta, iluminación y bomba de agua mediante módulo de relés).
+Sistema integral de seguridad y domótica desarrollado para proyectos de feria tecnológica. Combina **Autenticación Administrativa**, **Inteligencia Artificial en el navegador (Visión Artificial / Reconocimiento Facial)**, un **Backend REST con Node.js & MySQL**, y un **Microcontrolador ESP8266** para la activación física de actuadores (cerradura eléctrica/puerta, iluminación y bomba de agua mediante módulo de relés).
 
 ---
 
 ## 📑 Tabla de Contenidos
 1. [Descripción General](#-descripción-general)
-2. [Características Principales](#-características-principales)
-3. [Arquitectura del Sistema](#-arquitectura-del-sistema)
-4. [Estructura del Repositorio](#-estructura-del-repositorio)
-5. [Requisitos Previos](#-requisitos-previos)
-6. [Instalación y Configuración](#-instalación-y-configuración)
+2. [Cuentas y Credenciales de Ejemplo](#-cuentas-y-credenciales-de-ejemplo)
+3. [Características Principales](#-características-principales)
+4. [Arquitectura del Sistema](#-arquitectura-del-sistema)
+5. [Estructura del Repositorio](#-estructura-del-repositorio)
+6. [Requisitos Previos](#-requisitos-previos)
+7. [Instalación y Configuración](#-instalación-y-configuración)
    - [1. Configuración de Base de Datos (MySQL)](#1-configuración-de-base-de-datos-mysql)
    - [2. Configuración y Ejecución del Backend](#2-configuración-y-ejecución-del-backend)
    - [3. Acceso a la Interfaz Frontend](#3-acceso-a-la-interfaz-frontend)
    - [4. Programación y Conexión del ESP8266](#4-programación-y-conexión-del-esp8266)
-7. [Referencia de la API REST](#-referencia-de-la-api-rest)
-8. [Diagnóstico y Solución: Actualización de Usuarios](#-diagnóstico-y-solución-actualización-de-usuarios)
-9. [Documentación Adicional](#-documentación-adicional)
+8. [Referencia de la API REST](#-referencia-de-la-api-rest)
+9. [Diagnóstico y Solución: Actualización de Usuarios](#-diagnóstico-y-solución-actualización-de-usuarios)
+10. [Documentación Adicional](#-documentación-adicional)
 
 ---
 
 ## 🌟 Descripción General
 
 El proyecto permite gestionar de forma centralizada la seguridad de una instalación:
-1. **Registro Biométrico:** Desde el panel de administración, el administrador captura el rostro de una persona con la cámara web. Los descriptores faciales (vectores de 128 dimensiones de TensorFlow.js/face-api.js) se extraen en el cliente y se almacenan serializados en la base de datos MySQL.
-2. **Autenticación Facial en Vivo:** En el portal de acceso (`login.html`), la cámara escanea en tiempo real a la persona frente al dispositivo, calcula la distancia euclidiana frente a los rostros registrados en la base de datos y, si el usuario tiene acceso habilitado, le concede el ingreso.
-3. **Control de Actuadores (Domótica IoT):** Al autorizar el acceso, el usuario tiene acceso a controles en tiempo real para abrir la puerta, encender/apagar luces y activar/desactivar bombas. Estos comandos son encolados en la base de datos y consumidos por el microcontrolador ESP8266 mediante peticiones HTTP.
+1. **Inicio de Sesión Administrativo (`admin_login.html`):** Protege el panel de administración con usuario y contraseña, permitiendo gestionar el registro de nuevos usuarios y consultar la auditoría.
+2. **Registro Biométrico (`index.html`):** El administrador captura el rostro de una persona con la cámara web. Los descriptores faciales (vectores de 128 dimensiones de TensorFlow.js/face-api.js) se extraen en el cliente y se almacenan serializados en la base de datos MySQL.
+3. **Autenticación Facial en Vivo (`login.html`):** En el portal de acceso, la cámara escanea en tiempo real a la persona frente al dispositivo, calcula la distancia euclidiana frente a los rostros registrados en la base de datos y, si el usuario tiene acceso habilitado, le concede el ingreso.
+4. **Control de Actuadores (Domótica IoT):** Al autorizar el acceso, el usuario dispone de controles en tiempo real para abrir la puerta (3s temporizado), encender/apagar luces y activar/desactivar bombas. Estos comandos son encolados en la base de datos y consumidos por el microcontrolador ESP8266 mediante peticiones HTTP.
+
+---
+
+## 🔑 Cuentas y Credenciales de Ejemplo
+
+Para facilitar las pruebas y demostraciones en vivo, la base de datos se inicializa automáticamente con los siguientes accesos:
+
+| Rol | Interfaz | Identificador / Usuario | Contraseña / Método | Propósito |
+| :--- | :--- | :--- | :--- | :--- |
+| **Administrador** | [admin_login.html](frontend/admin_login.html) | `admin` | `admin123` | Acceso total al panel de gestión, registro biométrico y logs |
+| **Usuario de Ejemplo** | [login.html](frontend/login.html) | `Carlos Gómez (Usuario Ejemplo)` (ID: 1) | Reconocimiento Facial / Botón Demo | Acceso al panel domótico y activación de actuadores |
 
 ---
 
 ## ✨ Características Principales
 
+- **Seguridad y Control de Sesión:** Módulo de inicio de sesión administrativo con almacenamiento de token/sesión en el navegador.
 - **IA en el Cliente (Sin costes de API externa):** Utiliza SSD MobileNet v1 y FaceLandmarks68 sobre WebGL/Canvas para inferencia biométrica en tiempo real a alta velocidad.
 - **Auditoría y Logs en Tiempo Real:** Registro detallado de cada intento de acceso (exitoso o denegado) con marca de tiempo.
 - **Cola de Comandos Asíncrona (Polling IoT):** Comunicación fluida entre la web y el hardware sin necesidad de IP pública o configuración compleja de puertos.
@@ -51,6 +65,7 @@ El proyecto permite gestionar de forma centralizada la seguridad de una instalac
 ```
   ┌──────────────────────────────────────────────────────────┐
   │                   NAVEGADOR WEB / CLIENTE               │
+  │  - Login Admin (admin_login.html)                        │
   │  - Panel Admin (index.html, app.js)                      │
   │  - Portal de Acceso Facial (login.html, login.js)        │
   │  - Inferencia IA: SSD MobileNet + Face-API (128D Vector) │
@@ -60,13 +75,13 @@ El proyecto permite gestionar de forma centralizada la seguridad de una instalac
   ┌──────────────────────────────────────────────────────────┐
   │                 BACKEND (Node.js + Express)              │
   │  - Servidor API en Puerto 3000                           │
-  │  - Gestión de Usuarios, Rostros, Logs y Comandos         │
+  │  - Auth Admin, Usuarios, Rostros, Logs y Comandos        │
   └──────────────────────────┬───────────────────────────────┘
                              │ mysql2 / Pool de Conexiones
                              ▼
   ┌──────────────────────────────────────────────────────────┐
   │                 BASE DE DATOS (MySQL / MariaDB)          │
-  │  - Tablas: usuarios, accesos_log, comandos               │
+  │  - Tablas: administradores, usuarios, accesos_log, cmds  │
   └──────────────────────────┬───────────────────────────────┘
                              │ HTTP GET Polling (/api/check_comando)
                              ▼
@@ -87,20 +102,22 @@ proyecto_feria/
 ├── backend/
 │   ├── download_models.js       # Script de descarga de pesos de face-api
 │   ├── package.json             # Dependencias del servidor (express, cors, mysql2)
-│   └── server.js                # Servidor API REST y servidor de estáticos
-├── database.sql                 # Script DDL de creación de tablas en MySQL
+│   └── server.js                # Servidor API REST, auth y servidor de estáticos
+├── database.sql                 # Script DDL con administradores y datos de prueba
 ├── esp8266/
 │   └── puerta_biometrica.ino    # Firmware Arduino C++ para NodeMCU ESP8266
 ├── frontend/
-│   ├── app.js                   # Lógica del panel administrativo y registro de rostros
-│   ├── index.html               # Vista del panel de administración
+│   ├── admin_login.html         # Pantalla de inicio de sesión para el administrador
+│   ├── app.js                   # Lógica del panel administrativo y gestión de sesión
+│   ├── index.html               # Vista del panel de administración (protegido)
 │   ├── login.html               # Vista de login con escáner biométrico y panel domótico
-│   ├── login.js                 # Lógica de comparación de rostros y envío de comandos
+│   ├── login.js                 # Lógica de comparación facial, demo y comandos
 │   ├── models/                  # Pesos binarios locales para face-api.js
 │   └── style.css                # Estilos modernos con tema oscuro y glassmorphism
 ├── docs/
 │   ├── ARQUITECTURA.md          # Especificación completa de arquitectura y diagramas
 │   └── DOCUMENTACION_TECNICA.md # Especificación técnica, endpoints y hardware
+├── .gitignore                   # Configuración de exclusiones de git
 └── README.md                    # Documento principal del proyecto
 ```
 
@@ -131,10 +148,7 @@ proyecto_feria/
    CREATE DATABASE IF NOT EXISTS proyecto_feria;
    USE proyecto_feria;
    ```
-4. El script creará las siguientes tablas optimizadas:
-   - `usuarios`: Almacena el nombre, el descriptor facial (`LONGTEXT`) y el estado de acceso.
-   - `accesos_log`: Auditoría de autenticaciones faciales con fecha y estado.
-   - `comandos`: Cola de instrucciones domóticas para el ESP8266.
+   *(Nota: El servidor Node.js también inicializa automáticamente las tablas y los usuarios de prueba al arrancar si la base de datos `proyecto_feria` está creada).*
 
 ### 2. Configuración y Ejecución del Backend
 
@@ -146,7 +160,7 @@ proyecto_feria/
    ```bash
    npm install
    ```
-3. Verifica la configuración de conexión en [backend/server.js](backend/server.js#L18-L23):
+3. Verifica la configuración de conexión en [backend/server.js](backend/server.js):
    ```javascript
    const dbConfig = {
        host: 'localhost',
@@ -166,32 +180,12 @@ proyecto_feria/
 ### 3. Acceso a la Interfaz Frontend
 
 Al arrancar el servidor backend, los archivos del frontend se sirven automáticamente:
-- **Panel de Administración (Registro de Rostros y Logs):**
+- **Inicio de Sesión Administrador:**
+  👉 [http://localhost:3000/admin_login.html](http://localhost:3000/admin_login.html) *(Credenciales: `admin` / `admin123`)*
+- **Panel de Administración (Protegido):**
   👉 [http://localhost:3000/](http://localhost:3000/) o [http://localhost:3000/index.html](http://localhost:3000/index.html)
 - **Portal de Acceso Biométrico y Control Domótico:**
   👉 [http://localhost:3000/login.html](http://localhost:3000/login.html)
-
-*(También puedes abrir los archivos directamente usando la extensión Live Server en VS Code si lo prefieres).*
-
-### 4. Programación y Conexión del ESP8266
-
-1. Abre el archivo [esp8266/puerta_biometrica.ino](esp8266/puerta_biometrica.ino) en **Arduino IDE**.
-2. Instala las librerías necesarias desde el Gestor de Librerías (`Programa -> Incluir Librería -> Administrar Bibliotecas`):
-   - `ESP8266WiFi` (incluida en el core ESP8266).
-   - `ESP8266HTTPClient`.
-   - `WiFiManager` (por tzapu / tablatronix).
-3. Modifica la variable `HOST_URL` con la IP local de tu computadora (usa `ipconfig` en Windows para conocerla):
-   ```cpp
-   const char* HOST_URL = "http://192.168.1.100:3000"; // Reemplaza con la IP de tu PC
-   ```
-4. Conecta la placa NodeMCU ESP8266 por USB, selecciona la placa y el puerto COM correspondiente y presiona **Subir (Upload)**.
-5. Diagrama de Pines:
-   | Función | Pin NodeMCU | GPIO ESP8266 | Conexión Relé |
-   | :--- | :--- | :--- | :--- |
-   | **Cerradura / Puerta** | D4 | GPIO 2 | IN1 |
-   | **Luces** | D5 | GPIO 14 | IN2 |
-   | **Bomba de Agua** | D8 | GPIO 15 | IN3 |
-   | **Alimentación** | VIN (5V) / GND | - | VCC / GND del Relé |
 
 ---
 
@@ -199,6 +193,7 @@ Al arrancar el servidor backend, los archivos del frontend se sirven automática
 
 | Método | Endpoint | Descripción | Body (JSON) / Respuesta |
 | :--- | :--- | :--- | :--- |
+| `POST` | `/api/admin/login` | Iniciar sesión administrativa | Payload: `{ usuario, password }` -> Retorna token y datos admin |
 | `GET` | `/api/usuarios` | Obtiene la lista de usuarios registrados para el panel | Retorna `[{ id, nombre, tiene_acceso, creado_en }]` |
 | `GET` | `/api/rostros` | Obtiene los descriptores faciales (vectores 128D) | Retorna `[{ id, nombre, face_descriptor }]` |
 | `POST` | `/api/usuarios` | Registra un nuevo usuario con su vector facial | Payload: `{ nombre, face_descriptor, tiene_acceso }` |
@@ -206,30 +201,6 @@ Al arrancar el servidor backend, los archivos del frontend se sirven automática
 | `GET` | `/api/logs` | Devuelve el historial de accesos recientes | Retorna `[{ id, nombre, face_id, estado, fecha }]` |
 | `POST` | `/api/comando` | Encola un comando domótico para el ESP8266 | Payload: `{ accion }` (`ABRIR_PUERTA`, `LUCES_ON`, etc.) |
 | `GET` | `/api/check_comando` | Endpoint de consumo para el ESP8266 (FIFO) | Retorna texto plano: `ABRIR_PUERTA`, `NONE`, etc. |
-
----
-
-## 🔍 Diagnóstico y Solución: Actualización de Usuarios
-
-### ❓ ¿Por qué los usuarios creados no se actualizaban en la vista?
-
-Durante el análisis del código se detectaron **tres causas fundamentales concatenadas**:
-
-1. **Incompatibilidad de Esquema en Base de Datos (`database.sql` vs `server.js`):**
-   - El script original `database.sql` definía la tabla con una columna `face_id VARCHAR(50) NOT NULL UNIQUE`, pero el backend ejecutaba `INSERT INTO usuarios (nombre, face_descriptor, tiene_acceso)`.
-   - Como la columna `face_descriptor` no existía en la base de datos y `face_id` requería un valor obligatorio sin valor por defecto, MySQL rechazaba la inserción y devolvía un error HTTP 500 (`Unknown column 'face_descriptor'`).
-2. **Falsa Confirmación de Éxito en el Frontend (`frontend/app.js`):**
-   - La función estándar `fetch()` de JavaScript **no rechaza la promesa** cuando el servidor responde con un código de error HTTP `500` o `400`. Solo se va al bloque `catch` si hay una caída total de red.
-   - En consecuencia, el código ejecutaba `alert("Usuario registrado con éxito.")` y llamaba a `cargarUsuarios()`, pero como la base de datos nunca insertó la fila, la tabla se volvía a cargar exactamente igual, dando la ilusión de que no se actualizaba.
-3. **Tipo de Dato Inadecuado para Descriptores Faciales:**
-   - Un descriptor facial de face-api.js es un vector de 128 números flotantes. Al serializarse a JSON, ocupa entre 1.5 KB y 2.5 KB de texto.
-   - Si la columna se creaba como `VARCHAR(255)`, MySQL truncaba o fallaba por desbordamiento de tamaño.
-
-### ✅ ¿Cómo se solucionó?
-
-1. **Corrección de `database.sql`:** Se actualizó la definición de la columna a `face_descriptor LONGTEXT NOT NULL`.
-2. **Validación `res.ok` en `frontend/app.js`:** Se añadió verificación estricta de `res.ok`. Si el servidor responde con un error, se extrae el mensaje de error del backend y se notifica al usuario sin limpiar el formulario erróneamente.
-3. **Resiliencia de Modelos:** Se añadió soporte para fallback local (`./models`) y CDN con reintentos para garantizar que la captura biométrica siempre esté lista.
 
 ---
 

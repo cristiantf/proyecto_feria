@@ -13,6 +13,7 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 
 | Método | Ruta | Propósito | Autenticación |
 | :--- | :--- | :--- | :--- |
+| `POST` | `/api/admin/login` | Autenticación de administradores | Pública / Credenciales |
 | `GET` | `/api/usuarios` | Listar usuarios registrados para la tabla administrativa | Pública |
 | `GET` | `/api/rostros` | Descargar vectores biométricos para el motor de matching | Pública |
 | `POST` | `/api/usuarios` | Registrar un nuevo usuario y su vector de 128 flotantes | Pública |
@@ -25,6 +26,31 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 
 ### 1.2. Detalle de Endpoints y Esquemas JSON
 
+#### `POST /api/admin/login`
+- **Descripción:** Valida las credenciales del administrador para otorgar acceso al panel administrativo.
+- **Request Body:**
+```json
+{
+  "usuario": "admin",
+  "password": "admin123"
+}
+```
+- **Respuesta Exitosa (200 OK):**
+```json
+{
+  "success": true,
+  "admin": {
+    "id": 1,
+    "usuario": "admin",
+    "nombre": "Administrador Principal",
+    "rol": "SuperAdmin"
+  },
+  "token": "auth-admin-YWRtaW46MTc4NzkyOTIzNTE1NA=="
+}
+```
+
+---
+
 #### `GET /api/usuarios`
 - **Descripción:** Retorna los datos básicos de todos los usuarios registrados (excluyendo el vector biométrico para optimizar ancho de banda).
 - **Respuesta Exitosa (200 OK):**
@@ -32,9 +58,9 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 [
   {
     "id": 1,
-    "nombre": "Administrador General",
+    "nombre": "Carlos Gómez (Usuario Ejemplo)",
     "tiene_acceso": 1,
-    "creado_en": "2026-08-27T18:00:00.000Z"
+    "creado_en": "2026-08-28T14:59:45.000Z"
   }
 ]
 ```
@@ -48,8 +74,8 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 [
   {
     "id": 1,
-    "nombre": "Administrador General",
-    "face_descriptor": "[-0.145892, 0.098231, ..., 0.034512]"
+    "nombre": "Carlos Gómez (Usuario Ejemplo)",
+    "face_descriptor": "[-0.1245, 0.0892, ..., 0.0234]"
   }
 ]
 ```
@@ -75,18 +101,6 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
   "tiene_acceso": true
 }
 ```
-- **Respuesta de Error (400 Bad Request):**
-```json
-{
-  "error": "Nombre y descriptor facial son obligatorios."
-}
-```
-- **Respuesta de Error (500 Internal Server Error):**
-```json
-{
-  "error": "Error interno del motor de base de datos..."
-}
-```
 
 ---
 
@@ -95,7 +109,7 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 - **Request Body:**
 ```json
 {
-  "id": 2,
+  "id": 1,
   "estado": "EXITO"
 }
 ```
@@ -132,7 +146,19 @@ El backend expone una API REST construida sobre Express.js en el puerto predeter
 
 ## 2. Diccionario de Datos (Base de Datos MySQL)
 
-### 2.1. Tabla: `usuarios`
+### 2.1. Tabla: `administradores`
+Gestiona las credenciales del personal administrativo para el acceso al panel.
+
+| Campo | Tipo | Nulo | Clave | Default | Descripción |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `id` | `INT` | No | PK (AI) | Auto | Identificador único del administrador |
+| `usuario` | `VARCHAR(50)` | No | UNIQUE | - | Nombre de usuario para login |
+| `password` | `VARCHAR(255)` | No | - | - | Contraseña de acceso |
+| `nombre` | `VARCHAR(100)` | No | - | - | Nombre del administrador |
+| `rol` | `VARCHAR(20)` | Sí | - | `admin` | Nivel de privilegios |
+| `creado_en` | `TIMESTAMP` | Sí | - | `CURRENT_TIMESTAMP` | Fecha de alta |
+
+### 2.2. Tabla: `usuarios`
 Almacena las credenciales biométricas y permisos de cada persona registrada.
 
 | Campo | Tipo | Nulo | Clave | Default | Descripción |
@@ -143,7 +169,7 @@ Almacena las credenciales biométricas y permisos de cada persona registrada.
 | `tiene_acceso` | `BOOLEAN` | Sí | - | `TRUE` | Bandera de autorización de acceso (1: Activo, 0: Bloqueado) |
 | `creado_en` | `TIMESTAMP` | Sí | - | `CURRENT_TIMESTAMP` | Fecha y hora de creación del registro |
 
-### 2.2. Tabla: `accesos_log`
+### 2.3. Tabla: `accesos_log`
 Historial de eventos de autenticación biométrica para auditoría y trazabilidad.
 
 | Campo | Tipo | Nulo | Clave | Default | Descripción |
@@ -154,7 +180,7 @@ Historial de eventos de autenticación biométrica para auditoría y trazabilida
 | `fecha_dispositivo`| `TIMESTAMP` | Sí | - | `CURRENT_TIMESTAMP` | Marca temporal del evento |
 | `creado_en` | `TIMESTAMP` | Sí | - | `CURRENT_TIMESTAMP` | Marca temporal de inserción |
 
-### 2.3. Tabla: `comandos`
+### 2.4. Tabla: `comandos`
 Cola FIFO para la comunicación asíncrona hacia el microcontrolador ESP8266.
 
 | Campo | Tipo | Nulo | Clave | Default | Descripción |
@@ -189,70 +215,3 @@ Cola FIFO para la comunicación asíncrona hacia el microcontrolador ESP8266.
   - El cierre se efectúa comparando `millis() - msPuertaAbierta >= TIEMPO_PUERTA_MS` en la función `loop()`, asegurando que el microcontrolador no se congele con un `delay()` y siga respondiendo a la red.
 - **Configuración de Red WiFi Dinámica:**
   - Si el dispositivo pierde la conexión o no encuentra la red, `WiFiManager` levanta automáticamente un punto de acceso denominado `ESP_DOMOTICA` con IP `192.168.4.1` durante 180 segundos.
-
----
-
-## 4. Análisis del Fallo de Actualización de Usuarios y Solución Técnica
-
-### 4.1. Análisis Causa-Raíz (Root Cause Analysis)
-
-```
-[Problema: Los usuarios registrados en el panel no aparecían en la tabla]
-  │
-  ├── 1. Discrepancia en Base de Datos (SQL DDL vs Node.js Query)
-  │      - database.sql creaba: `face_id VARCHAR(50) NOT NULL`
-  │      - server.js ejecutaba: `INSERT INTO usuarios (nombre, face_descriptor, tiene_acceso)`
-  │      - Consecuencia: MySQL rechazaba la inserción con error de columna inexistente.
-  │
-  ├── 2. Silenciamiento de Excepciones en el Frontend (app.js)
-  │      - fetch() no rechaza la promesa ante códigos HTTP 500.
-  │      - El frontend asumía que la petición fue exitosa, emitía el alert() de éxito
-  │        y llamaba a cargarUsuarios().
-  │      - Al no haber ningún usuario nuevo en MySQL, la vista no mostraba cambios.
-  │
-  └── 3. Tipo de Datos para Descriptores Faciales
-         - Un descriptor facial de face-api.js consta de 128 valores en coma flotante.
-         - Serializado en JSON requiere >1500 caracteres, requiriendo tipo `LONGTEXT`.
-```
-
-### 4.2. Correcciones Implementadas
-
-1. **Corrección del Esquema SQL (`database.sql`):**
-   ```sql
-   CREATE TABLE IF NOT EXISTS usuarios (
-       id INT AUTO_INCREMENT PRIMARY KEY,
-       nombre VARCHAR(100) NOT NULL,
-       face_descriptor LONGTEXT NOT NULL,
-       tiene_acceso BOOLEAN DEFAULT TRUE,
-       creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-   );
-   ```
-2. **Validación de Respuestas HTTP en el Frontend (`frontend/app.js`):**
-   ```javascript
-   const res = await fetch(`${API_URL}/usuarios`, { ... });
-   if (!res.ok) {
-       const errorData = await res.json().catch(() => ({ error: 'Error ' + res.status }));
-       throw new Error(errorData.error || 'Error al registrar el usuario');
-   }
-   await cargarUsuarios(); // Se invoca tras inserción garantizada
-   ```
-3. **Servicio Unificado de Archivos Estáticos:**
-   - Se configuró Express en `server.js` para servir directamente la carpeta `frontend`, permitiendo ejecutar todo el sistema desde `http://localhost:3000`.
-
----
-
-## 5. Protocolo de Pruebas y Validación
-
-1. **Prueba de Inserción de Usuario:**
-   - Abrir `http://localhost:3000/`.
-   - Clic en *"Registrar Rostro"*.
-   - Posicionarse frente a la cámara hasta ver el indicador en verde *"¡Rostro detectado y capturado!"*.
-   - Introducir un nombre (ej. "Carlos Gómez") y presionar *"Guardar Rostro y Usuario"*.
-   - **Resultado Esperado:** La tabla de usuarios se actualiza de inmediato con el nuevo ID, nombre y estado "Habilitado".
-2. **Prueba de Autenticación Facial:**
-   - Navegar a `http://localhost:3000/login.html`.
-   - Permitir acceso a la cámara.
-   - **Resultado Esperado:** El sistema identifica a "Carlos Gómez", registra el evento en `accesos_log` y muestra el panel domótico interactivo.
-3. **Prueba de Comandos Domóticos:**
-   - En el panel de control, presionar *"Abrir Puerta"*.
-   - Comprobar en la consola del backend y en el Monitor Serie del ESP8266 (115200 baudios) la recepción del comando `ABRIR_PUERTA` y el cambio de estado del Relé 1 durante 3 segundos.

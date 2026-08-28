@@ -1,6 +1,43 @@
 const API_URL = 'http://localhost:3000/api';
 
-// Elementos DOM
+// ==========================================
+// CONTROL DE ACCESO / AUTENTICACIÓN ADMIN
+// ==========================================
+const adminSessionData = localStorage.getItem('admin_session');
+if (!adminSessionData) {
+    // Si no ha iniciado sesión como administrador, redirigir al login administrativo
+    window.location.href = 'admin_login.html';
+}
+
+let currentAdmin = null;
+try {
+    currentAdmin = JSON.parse(adminSessionData);
+    const adminDisplay = document.getElementById('admin-nombre-display');
+    if (adminDisplay && currentAdmin) {
+        adminDisplay.innerText = currentAdmin.nombre || currentAdmin.usuario || 'Administrador';
+    }
+} catch (e) {
+    console.error('Error al leer datos de sesión:', e);
+}
+
+function cerrarSesionAdmin() {
+    if (confirm('¿Deseas cerrar la sesión administrativa?')) {
+        localStorage.removeItem('admin_session');
+        localStorage.removeItem('admin_token');
+        window.location.href = 'admin_login.html';
+    }
+}
+
+// Botones de Logout
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) btnLogout.addEventListener('click', cerrarSesionAdmin);
+
+const btnSidebarLogout = document.getElementById('btn-sidebar-logout');
+if (btnSidebarLogout) btnSidebarLogout.addEventListener('click', cerrarSesionAdmin);
+
+// ==========================================
+// ELEMENTOS DOM
+// ==========================================
 const navItems = document.querySelectorAll('.nav-menu li');
 const sections = document.querySelectorAll('.content-section');
 const tablaUsuarios = document.getElementById('tabla-usuarios');
@@ -37,21 +74,37 @@ async function cargarUsuarios() {
         const res = await fetch(`${API_URL}/usuarios`);
         const usuarios = await res.json();
         tablaUsuarios.innerHTML = '';
+
+        if (usuarios.length === 0) {
+            tablaUsuarios.innerHTML = `
+                <tr>
+                    <td colspan="4" style="text-align: center; color: var(--text-secondary); padding: 30px;">
+                        <i class="fa-solid fa-users-slash" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                        No hay usuarios registrados aún. Presiona <strong>"Registrar Rostro"</strong> para crear uno.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
         usuarios.forEach(user => {
+            const fecha = user.creado_en ? new Date(user.creado_en).toLocaleString() : 'Reciente';
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><strong>#${user.id}</strong></td>
-                <td>${user.nombre}</td>
+                <td><i class="fa-solid fa-user" style="color: var(--primary-color); margin-right: 8px;"></i> ${user.nombre}</td>
                 <td>
                     <span class="badge ${user.tiene_acceso ? 'badge-success' : 'badge-danger'}">
+                        <i class="fa-solid ${user.tiene_acceso ? 'fa-check' : 'fa-ban'}"></i>
                         ${user.tiene_acceso ? 'Habilitado' : 'Denegado'}
                     </span>
                 </td>
+                <td style="color: var(--text-secondary); font-size: 0.85rem;">${fecha}</td>
             `;
             tablaUsuarios.appendChild(tr);
         });
     } catch (error) {
-        console.error(error);
+        console.error('Error al cargar usuarios:', error);
     }
 }
 
@@ -61,19 +114,37 @@ async function cargarLogs() {
         const res = await fetch(`${API_URL}/logs`);
         const logs = await res.json();
         tablaLogs.innerHTML = '';
+
+        if (logs.length === 0) {
+            tablaLogs.innerHTML = `
+                <tr>
+                    <td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 30px;">
+                        <i class="fa-solid fa-clipboard-list" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                        No hay eventos de acceso registrados aún.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
         logs.forEach(log => {
             const date = new Date(log.fecha_dispositivo).toLocaleString();
             const badgeClass = log.estado === 'EXITO' ? 'badge-success' : 'badge-danger';
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${date}</td>
-                <td>${log.nombre ? log.nombre : 'Desconocido'}</td>
-                <td><span class="badge ${badgeClass}">${log.estado}</span></td>
+                <td><strong>${log.nombre ? log.nombre : 'Sujeto No Reconocido'}</strong> (ID: ${log.face_id || 'N/A'})</td>
+                <td>
+                    <span class="badge ${badgeClass}">
+                        <i class="fa-solid ${log.estado === 'EXITO' ? 'fa-circle-check' : 'fa-triangle-exclamation'}"></i>
+                        ${log.estado}
+                    </span>
+                </td>
             `;
             tablaLogs.appendChild(tr);
         });
     } catch (error) {
-        console.error(error);
+        console.error('Error al cargar logs:', error);
     }
 }
 
@@ -101,7 +172,7 @@ async function cargarModelos() {
             console.warn(`No se pudieron cargar modelos desde ${uri}:`, err.message);
         }
     }
-    estadoIA.innerText = "Error cargando modelos. Asegúrate de iniciar un servidor web local (Live Server o http-server).";
+    estadoIA.innerText = "Error cargando modelos. Asegúrate de iniciar un servidor web local.";
 }
 
 function iniciarCamara() {
@@ -110,7 +181,7 @@ function iniciarCamara() {
         video.srcObject = stream;
     })
     .catch(err => {
-        estadoIA.innerText = "Error al acceder a la cámara.";
+        estadoIA.innerText = "Error al acceder a la cámara o permisos denegados.";
     });
 }
 
@@ -144,7 +215,6 @@ video.addEventListener('play', () => {
         }
     }, 500); // 2 FPS para no saturar
 });
-
 
 // Guardar Usuario
 formUsuario.addEventListener('submit', async (e) => {

@@ -3,42 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal de Acceso - Control Domótico</title>
+    <title>Portal de Acceso Biométrico - Control Domótico</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <style>
-        .login-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; }
-        .video-wrapper { position: relative; display: inline-block; margin-bottom: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border-radius: 12px; overflow: hidden; }
-        .control-panel { display: none; background: var(--bg-card); padding: 40px; border-radius: 16px; border: 1px solid var(--border-color); width: 100%; max-width: 600px;}
-        .grid-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px; }
-        .btn-domotica { padding: 20px; font-size: 1.2rem; flex-direction: column; gap: 10px; }
-        .btn-domotica i { font-size: 2rem; }
+        .login-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .video-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 20px;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.5);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid var(--border-color);
+        }
+
+        .control-panel {
+            display: none;
+            background: var(--bg-card);
+            padding: 40px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            animation: fadeIn 0.4s ease;
+        }
+
+        .grid-botones {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .btn-domotica {
+            padding: 20px;
+            font-size: 1.1rem;
+            flex-direction: column;
+            gap: 10px;
+            border-radius: 12px;
+        }
+
+        .btn-domotica i {
+            font-size: 2rem;
+        }
+
+        .demo-bar {
+            margin-top: 20px;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-quick-demo {
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px dashed rgba(59, 130, 246, 0.4);
+            color: var(--primary-color);
+            font-size: 0.85rem;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-quick-demo:hover {
+            background: var(--primary-color);
+            color: white;
+        }
     </style>
 </head>
 <body>
     
-    <!-- PANTALLA DE RECONOCIMIENTO -->
+    <!-- PANTALLA DE RECONOCIMIENTO BIOMÉTRICO -->
     <div id="pantalla-reconocimiento" class="login-container">
-        <h1 style="margin-bottom: 10px;">Escaneo Facial</h1>
-        <p id="estado-login" style="margin-bottom: 30px; color: var(--text-secondary);">Cargando sistema de IA...</p>
+        <h1 style="margin-bottom: 8px;"><i class="fa-solid fa-camera"></i> Escaneo Facial Biométrico</h1>
+        <p id="estado-login" style="margin-bottom: 24px; color: var(--text-secondary);">Cargando sistema de Inteligencia Artificial...</p>
         
         <div class="video-wrapper">
             <video id="video-login" width="640" height="480" autoplay muted></video>
             <canvas id="canvas-login" style="position: absolute; top: 0; left: 0;"></canvas>
         </div>
+
+        <div class="demo-bar">
+            <!-- Botón para simular acceso de usuario de ejemplo durante presentaciones -->
+            <button class="btn-quick-demo" onclick="simularAccesoDemo()">
+                <i class="fa-solid fa-user-check"></i> Probar Acceso con "Carlos Gómez" (Demo)
+            </button>
+            <a href="admin_login.html" class="btn btn-secondary" style="font-size: 0.85rem; text-decoration: none;">
+                <i class="fa-solid fa-shield-halved"></i> Panel Administrativo
+            </a>
+        </div>
     </div>
 
-    <!-- PANTALLA DE CONTROL (Se muestra tras reconocer el rostro) -->
+    <!-- PANTALLA DE CONTROL DOMÓTICO (Tras verificar identidad) -->
     <div id="pantalla-control" class="login-container" style="display: none;">
         <div class="control-panel">
             <h1 id="bienvenida-usuario">Bienvenido</h1>
-            <p style="color: var(--success-color);"><i class="fa-solid fa-circle-check"></i> Identidad Verificada</p>
+            <p style="color: var(--success-color); margin-top: 6px;">
+                <i class="fa-solid fa-circle-check"></i> Identidad Verificada - Acceso Concedido
+            </p>
             
             <div class="grid-botones">
                 <button class="btn btn-primary btn-domotica" onclick="enviarComando('ABRIR_PUERTA')">
-                    <i class="fa-solid fa-door-open"></i> Abrir Puerta
+                    <i class="fa-solid fa-door-open"></i> Abrir Puerta (3s)
                 </button>
                 <button class="btn btn-primary btn-domotica" onclick="enviarComando('LUCES_ON')" style="background-color: #f59e0b;">
                     <i class="fa-solid fa-lightbulb"></i> Encender Luces
@@ -54,7 +134,9 @@
                 </button>
             </div>
             
-            <button class="btn btn-danger w-100" style="margin-top: 30px;" onclick="cerrarSesion()">Cerrar Sesión / Volver a escanear</button>
+            <button class="btn btn-danger w-100" style="margin-top: 30px; padding: 14px;" onclick="cerrarSesion()">
+                <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión / Volver a Escanear
+            </button>
         </div>
     </div>
 

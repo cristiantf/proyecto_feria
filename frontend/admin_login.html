@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inicio de Sesión - Panel Administrativo</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .login-page {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.15), transparent 40%),
+                        radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.1), transparent 40%),
+                        var(--bg-dark);
+            padding: 20px;
+        }
+
+        .auth-card {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 440px;
+            padding: 40px 32px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            animation: fadeIn 0.4s ease;
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .auth-logo {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, var(--primary-color), #6366f1);
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            color: white;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
+        }
+
+        .auth-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .auth-header p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .input-group i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px 14px 12px 42px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        .demo-credentials {
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px dashed rgba(59, 130, 246, 0.4);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 24px;
+            font-size: 0.85rem;
+        }
+
+        .demo-credentials-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .demo-row {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .btn-autofill {
+            background: rgba(59, 130, 246, 0.2);
+            border: none;
+            color: var(--primary-color);
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-autofill:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 18px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .auth-footer {
+            margin-top: 24px;
+            text-align: center;
+            border-top: 1px solid var(--border-color);
+            padding-top: 20px;
+        }
+
+        .auth-footer a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.2s;
+        }
+
+        .auth-footer a:hover {
+            color: var(--primary-color);
+        }
+    </style>
+</head>
+<body class="login-page">
+    <div class="auth-card">
+        <div class="auth-header">
+            <div class="auth-logo">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <h1>Panel Administrativo</h1>
+            <p>Ingresa tus credenciales para gestionar el sistema</p>
+        </div>
+
+        <div id="error-msg" class="alert-error">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span id="error-text">Usuario o contraseña incorrectos.</span>
+        </div>
+
+        <!-- Credenciales de Prueba -->
+        <div class="demo-credentials">
+            <div class="demo-credentials-title">
+                <span><i class="fa-solid fa-key"></i> Administrador Demo</span>
+                <button type="button" class="btn-autofill" onclick="autollenarCredenciales()">Autollenar</button>
+            </div>
+            <div class="demo-row">
+                <span>Usuario:</span> <code>admin</code>
+            </div>
+            <div class="demo-row">
+                <span>Contraseña:</span> <code>admin123</code>
+            </div>
+        </div>
+
+        <form id="form-login">
+            <div class="input-group">
+                <i class="fa-solid fa-user"></i>
+                <input type="text" id="usuario" name="usuario" placeholder="Usuario" required autocomplete="username">
+            </div>
+
+            <div class="input-group">
+                <i class="fa-solid fa-lock"></i>
+                <input type="password" id="password" name="password" placeholder="Contraseña" required autocomplete="current-password">
+            </div>
+
+            <button type="submit" id="btn-submit" class="btn btn-primary w-100" style="padding: 14px; font-size: 1rem;">
+                <i class="fa-solid fa-right-to-bracket"></i> Iniciar Sesión
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            <a href="login.html">
+                <i class="fa-solid fa-camera"></i> Ir al Portal Biométrico de Usuarios
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        const form = document.getElementById('form-login');
+        const errorBox = document.getElementById('error-msg');
+        const errorText = document.getElementById('error-text');
+        const btnSubmit = document.getElementById('btn-submit');
+
+        // Si ya hay sesión activa, ir directo al panel
+        if (localStorage.getItem('admin_session')) {
+            window.location.href = 'index.html';
+        }
+
+        function autollenarCredenciales() {
+            document.getElementById('usuario').value = 'admin';
+            document.getElementById('password').value = 'admin123';
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorBox.style.display = 'none';
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validando...';
+
+            const usuario = document.getElementById('usuario').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            try {
+                const res = await fetch(`${API_URL}/admin/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario, password })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok || !data.success) {
+                    throw new Error(data.error || 'Credenciales inválidas');
+                }
+
+                // Guardar sesión en LocalStorage
+                localStorage.setItem('admin_session', JSON.stringify(data.admin));
+                localStorage.setItem('admin_token', data.token);
+
+                btnSubmit.innerHTML = '<i class="fa-solid fa-check"></i> Acceso Concedido';
+                btnSubmit.style.backgroundColor = 'var(--success-color)';
+
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 600);
+
+            } catch (err) {
+                console.error(err);
+                errorText.innerText = err.message;
+                errorBox.style.display = 'flex';
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Iniciar Sesión';
+            }
+        });
+    </script>
+</body>
+</html>

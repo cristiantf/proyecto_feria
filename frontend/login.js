@@ -64,7 +64,7 @@ async function cargarRostrosDesdeBD() {
         }
 
         labeledFaceDescriptors = usuarios.map(u => {
-            const descriptorArray = JSON.parse(u.face_descriptor);
+            const descriptorArray = typeof u.face_descriptor === 'string' ? JSON.parse(u.face_descriptor) : u.face_descriptor;
             const descriptor = new Float32Array(descriptorArray);
             return new faceapi.LabeledFaceDescriptors(
                 u.id.toString() + "|" + u.nombre, 
@@ -86,7 +86,7 @@ function iniciarCamara() {
         scanning = true;
     })
     .catch(err => {
-        estadoLogin.innerText = "Error al acceder a la cámara web.";
+        estadoLogin.innerText = "Cámara no detectada o permisos denegados. Puedes usar el botón de prueba demo.";
     });
 }
 
@@ -142,7 +142,18 @@ async function registrarAcceso(id, estado) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, estado })
         });
-    } catch (e) {}
+    } catch (e) {
+        console.error('Error al registrar log de acceso:', e);
+    }
+}
+
+// Simular acceso con usuario de ejemplo (para ferias/demos rápidas)
+async function simularAccesoDemo() {
+    currentUser = { id: 1, nombre: 'Carlos Gómez (Usuario Ejemplo)' };
+    estadoLogin.innerText = `Autenticando usuario demo: ${currentUser.nombre}...`;
+    estadoLogin.style.color = 'var(--success-color)';
+    await registrarAcceso(currentUser.id, 'EXITO');
+    setTimeout(mostrarPanelControl, 600);
 }
 
 // ==========================================
@@ -157,16 +168,21 @@ function mostrarPanelControl() {
 
 async function enviarComando(accion) {
     try {
-        await fetch(`${API_URL}/comando`, {
+        const res = await fetch(`${API_URL}/comando`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ accion })
         });
+        
+        if (!res.ok) throw new Error('Error al enviar comando');
+
         // Feedback visual
-        const btn = event.currentTarget;
-        const textoOriginal = btn.innerHTML;
-        btn.innerHTML = `<i class="fa-solid fa-check"></i> Enviado`;
-        setTimeout(() => btn.innerHTML = textoOriginal, 2000);
+        if (event && event.currentTarget) {
+            const btn = event.currentTarget;
+            const textoOriginal = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-check"></i> Enviado al ESP8266`;
+            setTimeout(() => btn.innerHTML = textoOriginal, 2000);
+        }
     } catch (error) {
         alert("Error al enviar el comando al servidor.");
     }

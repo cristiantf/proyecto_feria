@@ -9,6 +9,25 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Cargar face-api.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+    <style>
+        .admin-user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .admin-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
@@ -22,23 +41,42 @@
                 <li data-target="logs-section"><i class="fa-solid fa-list-check"></i> Historial de Accesos</li>
             </ul>
             <div class="sidebar-footer">
-                <a href="login.html" class="btn btn-secondary w-100" style="text-decoration:none; text-align:center;">
-                    <i class="fa-solid fa-camera"></i> Ir al Portal Usuario
+                <a href="login.html" class="btn btn-secondary w-100" style="text-decoration:none; text-align:center; margin-bottom: 10px;">
+                    <i class="fa-solid fa-camera"></i> Portal Biométrico
                 </a>
+                <button id="btn-sidebar-logout" class="btn btn-danger w-100">
+                    <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión
+                </button>
             </div>
         </aside>
 
         <!-- Main Content -->
         <main class="main-content">
             <header>
-                <h1>Panel de Control (Administrador)</h1>
+                <h1>Panel de Control</h1>
+                <div class="admin-user-info">
+                    <div class="admin-badge">
+                        <i class="fa-solid fa-user-shield"></i>
+                        <span id="admin-nombre-display">Administrador</span>
+                    </div>
+                    <button id="btn-logout" class="btn btn-secondary" title="Cerrar sesión">
+                        <i class="fa-solid fa-right-from-bracket"></i> Salir
+                    </button>
+                </div>
             </header>
 
             <!-- Sección: Usuarios -->
             <section id="usuarios-section" class="content-section active">
                 <div class="section-header">
-                    <h2>Usuarios Registrados</h2>
-                    <button id="btn-nuevo-usuario" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Registrar Rostro</button>
+                    <div>
+                        <h2>Usuarios Registrados</h2>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 4px;">
+                            Lista de personas autorizadas para reconocimiento facial y control domótico
+                        </p>
+                    </div>
+                    <button id="btn-nuevo-usuario" class="btn btn-primary">
+                        <i class="fa-solid fa-plus"></i> Registrar Rostro
+                    </button>
                 </div>
                 
                 <div class="card">
@@ -48,6 +86,7 @@
                                 <th>ID DB</th>
                                 <th>Nombre</th>
                                 <th>Acceso Habilitado</th>
+                                <th>Fecha de Registro</th>
                             </tr>
                         </thead>
                         <tbody id="tabla-usuarios">
@@ -60,7 +99,12 @@
             <!-- Sección: Logs -->
             <section id="logs-section" class="content-section">
                 <div class="section-header">
-                    <h2>Registro de Accesos Recientes</h2>
+                    <div>
+                        <h2>Registro de Accesos Recientes</h2>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 4px;">
+                            Auditoría en tiempo real de intentos de autenticación
+                        </p>
+                    </div>
                     <button id="btn-refresh-logs" class="btn btn-secondary"><i class="fa-solid fa-rotate-right"></i> Actualizar</button>
                 </div>
 
