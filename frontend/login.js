@@ -69,8 +69,10 @@ async function init() {
     estadoLogin.innerText = "Cargando modelos de Inteligencia Artificial...";
     const uriList = [
         './models',
-        'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights',
-        'https://vladmandic.github.io/face-api/model/'
+        '/models',
+        'models',
+        'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights',
+        'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights'
     ];
 
     let modelsLoaded = false;
@@ -80,6 +82,7 @@ async function init() {
             await faceapi.nets.faceLandmark68Net.loadFromUri(uri);
             await faceapi.nets.faceRecognitionNet.loadFromUri(uri);
             modelsLoaded = true;
+            console.log('✅ Modelos face-api cargados desde:', uri);
             break;
         } catch (err) {
             console.warn(`No se pudieron cargar modelos desde ${uri}:`, err.message);
@@ -88,7 +91,7 @@ async function init() {
 
     if (!modelsLoaded) {
         estadoLogin.innerText = "Error cargando modelos. Puedes usar el ingreso por contraseña o botón demo.";
-        showToast('Modelos IA', 'No se pudieron cargar los modelos de visión.', 'warning');
+        showToast('Modelos IA', 'No se pudieron cargar los modelos de visión artificial.', 'warning');
     }
 
     try {

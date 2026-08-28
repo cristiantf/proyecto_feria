@@ -541,8 +541,10 @@ async function cargarModelos() {
     estadoIA.innerText = "Cargando modelos de IA...";
     const uriList = [
         './models',
-        'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights',
-        'https://vladmandic.github.io/face-api/model/'
+        '/models',
+        'models',
+        'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights',
+        'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights'
     ];
 
     for (const uri of uriList) {
@@ -550,15 +552,15 @@ async function cargarModelos() {
             await faceapi.nets.ssdMobilenetv1.loadFromUri(uri);
             await faceapi.nets.faceLandmark68Net.loadFromUri(uri);
             await faceapi.nets.faceRecognitionNet.loadFromUri(uri);
-            estadoIA.innerText = "Modelos cargados. Iniciando cámara...";
+            estadoIA.innerText = "Modelos cargados exitosamente. Iniciando cámara...";
             iniciarCamara();
             return;
         } catch (err) {
             console.warn(`No se pudieron cargar modelos desde ${uri}:`, err.message);
         }
     }
-    estadoIA.innerText = "Error cargando modelos. Asegúrate de iniciar un servidor web local.";
-    showToast('Modelos IA', 'No se pudieron cargar los pesos de face-api.js.', 'warning');
+    estadoIA.innerText = "Error cargando modelos. Verifica que el servidor Express esté corriendo.";
+    showToast('Modelos IA', 'No se pudieron cargar los modelos de visión artificial.', 'warning');
 }
 
 function iniciarCamara() {
